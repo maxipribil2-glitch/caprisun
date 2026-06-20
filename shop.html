@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Illegalo – Bestellen</title>
+<link rel="manifest" href="manifest-shop.json"/>
+<link rel="apple-touch-icon" href="icon-shop.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Illegalo"/>
+<meta name="theme-color" content="#6366f1"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Caveat:wght@700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#0a0e1a;--sf:#111827;--s2:#1e2740;--bd:#2a3555;--in:#6366f1;--am:#f59e0b;--gr:#10b981;--re:#ef4444;--bl:#3b82f6;--tx:#f1f5f9;--mu:#94a3b8;}
+body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;min-height:100vh;}
+button,input,select,textarea{font-family:'Inter',sans-serif;}
+input,select,textarea{width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;padding:10px 14px;color:var(--tx);font-size:.9rem;outline:none;transition:border-color .2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--in);}
+input::placeholder,textarea::placeholder{color:var(--mu);}
+select option{background:var(--s2);}
+textarea{resize:vertical;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:99px;}
+.wm{position:fixed;bottom:14px;left:18px;font-family:'Caveat',cursive;font-size:22px;color:var(--in);opacity:.5;z-index:9999;pointer-events:none;}
+.hdr{position:sticky;top:0;z-index:500;background:rgba(10,14,26,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--bd);height:60px;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-weight:800;font-size:1.4rem;background:linear-gradient(135deg,var(--in),var(--am));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav{display:flex;gap:.5rem;}
+.nb{background:none;border:1.5px solid var(--bd);border-radius:9px;color:var(--mu);font-size:.82rem;font-weight:600;padding:6px 14px;cursor:pointer;transition:all .2s;}
+.nb:hover{color:var(--tx);border-color:var(--in);}
+.nb.on{background:var(--in);border-color:var(--in);color:#fff;}
+.conn{display:flex;align-items:center;gap:5px;font-size:.75rem;font-weight:700;}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--re);}
+.conn-dot.ok{background:var(--gr);animation:pulse 2s ease infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.page{display:none;max-width:860px;margin:0 auto;padding:2.2rem 1.5rem 5rem;}
+.page.on{display:block;}
+.pgtitle{font-size:clamp(1.5rem,3.5vw,2.1rem);font-weight:800;letter-spacing:-.5px;margin-bottom:.3rem;}
+.pgtitle em{color:var(--in);font-style:normal;}
+.pgsub{color:var(--mu);font-size:.88rem;margin-bottom:1.8rem;}
+.crd{background:var(--sf);border:1.5px solid var(--bd);border-radius:16px;padding:1.4rem;margin-bottom:1rem;}
+.crd-t{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--mu);margin-bottom:1rem;}
+.fg{margin-bottom:.85rem;}
+.fg label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:.32rem;}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;}
+@media(max-width:540px){.r2,.r3{grid-template-columns:1fr;}}
+.arow{display:flex;gap:.6rem;align-items:flex-end;margin-bottom:.6rem;}
+.arow .fg{margin-bottom:0;flex:1;}
+.xbtn{background:rgba(239,68,68,.12);border:1.5px solid rgba(239,68,68,.3);border-radius:9px;color:var(--re);width:38px;height:38px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+.xbtn:hover{background:var(--re);color:#fff;border-color:var(--re);}
+.em-trigger{background:var(--s2);border:1.5px solid var(--bd);border-radius:9px;width:42px;height:38px;font-size:1.4rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .2s;flex-shrink:0;}
+.em-trigger:hover{border-color:var(--in);}
+.em-grid{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem;}
+.em-o{background:var(--s2);border:1.5px solid var(--bd);border-radius:8px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.em-o:hover,.em-o.sel{border-color:var(--in);background:rgba(99,102,241,.15);}
+.add-art{background:rgba(99,102,241,.09);border:1.5px dashed rgba(99,102,241,.4);border-radius:10px;color:var(--in);font-size:.84rem;font-weight:700;padding:9px;width:100%;cursor:pointer;transition:all .2s;margin-top:.2rem;}
+.add-art:hover{background:rgba(99,102,241,.18);border-style:solid;}
+.divr{height:1px;background:var(--bd);margin:1rem 0;}
+.tot{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.1rem;background:var(--s2);border-radius:10px;margin-top:.5rem;}
+.tot span{font-size:.8rem;color:var(--mu);font-weight:600;}
+.tot strong{font-size:1.2rem;font-weight:800;color:var(--am);}
+.post-btn{width:100%;background:linear-gradient(135deg,var(--in),#8b5cf6);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:800;padding:14px;cursor:pointer;transition:opacity .2s,transform .15s;margin-top:1rem;}
+.post-btn:hover{opacity:.88;transform:scale(1.01);}
+.post-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:1.8rem;}
+@media(max-width:480px){.stats{grid-template-columns:1fr;}}
+.stat{background:var(--sf);border:1.5px solid var(--bd);border-radius:13px;padding:1rem 1.2rem;}
+.stl{font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-bottom:.3rem;}
+.stv{font-size:1.45rem;font-weight:800;}
+.ci{color:var(--in);}.ca{color:var(--am);}.cg{color:var(--gr);}
+.olist{display:flex;flex-direction:column;gap:.8rem;}
+.oc{background:var(--sf);border:1.5px solid var(--bd);border-radius:13px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;transition:border-color .2s;}
+.oc:hover{border-color:var(--in);}
+.oid{font-size:.72rem;font-weight:800;color:var(--in);}
+.odt{font-size:.68rem;color:var(--mu);}
+.pill{font-size:.67rem;font-weight:800;padding:3px 10px;border-radius:999px;text-transform:uppercase;}
+.pV{background:rgba(245,158,11,.15);color:var(--am);border:1px solid rgba(245,158,11,.3);}
+.pS{background:rgba(59,130,246,.13);color:var(--bl);border:1px solid rgba(59,130,246,.28);}
+.pZ{background:rgba(16,185,129,.13);color:var(--gr);border:1px solid rgba(16,185,129,.28);}
+.pX{background:rgba(239,68,68,.13);color:var(--re);border:1px solid rgba(239,68,68,.28);}
+.onam{font-size:.83rem;font-weight:600;margin-left:auto;}
+.oamt{font-size:.9rem;font-weight:800;color:var(--am);}
+.empty{display:flex;flex-direction:column;align-items:center;gap:.7rem;padding:3rem;color:var(--mu);text-align:center;}
+.empty h2{color:var(--tx);font-size:.97rem;font-weight:800;}
+.toast{position:fixed;bottom:1.8rem;right:1.8rem;background:var(--gr);color:#fff;font-weight:800;font-size:.88rem;padding:12px 18px;border-radius:11px;z-index:2000;transform:translateY(80px);opacity:0;transition:all .35s cubic-bezier(.4,0,.2,1);box-shadow:0 8px 24px rgba(16,185,129,.35);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.err{background:var(--re);}
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;z-index:9998;}
+#loading p{color:var(--mu);font-size:.9rem;}
+.spinner{width:32px;height:32px;border:3px solid var(--bd);border-top-color:var(--in);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="wm">MAP</div>
+<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v1.9</div>
+
+<div id="loading"><div class="spinner"></div><p>Verbinde mit Firebase…</p></div>
+
+<header class="hdr">
+  <div class="logo">Illegalo ⚡</div>
+  <div class="nav">
+    <button class="nb on" id="btn-post" onclick="showPage('post')">✍️ Bestellen</button>
+    <button class="nb" id="btn-orders" onclick="showPage('orders')">📦 Orders <span id="order-count"></span></button>
+  </div>
+  <div class="conn"><div class="conn-dot" id="conn-dot"></div><span id="conn-label" style="color:var(--mu)">…</span></div>
+</header>
+
+<div class="page on" id="page-post">
+  <div class="pgtitle">Bestellung <em>aufgeben</em> ✍️</div>
+  <div class="pgsub">Alles manuell eintippen — erscheint sofort im Admin Panel auf jedem Gerät.</div>
+  <div class="crd">
+    <div class="crd-t">👤 Kundendaten</div>
+    <div class="fg"><label>Name *</label><input id="c-name" placeholder="Max Mustermann"/></div>
+    <div class="fg"><label>Lieferadresse *</label><input id="c-address" placeholder="Musterstraße 1, 80333 München"/></div>
+  </div>
+  <div class="crd">
+    <div class="crd-t">🛍️ Artikel</div>
+    <div id="items-container"></div>
+    <button class="add-art" onclick="addItem()">+ Weiteren Artikel hinzufügen</button>
+    <div class="tot"><span>Gesamtbetrag</span><strong id="total-display">€0,00</strong></div>
+  </div>
+  <div class="crd">
+    <div class="crd-t">⚙️ Details</div>
+    <div class="r2">
+      <div class="fg"><label>Kategorie</label>
+        <select id="d-cat"><option>Elektronik</option><option>Gaming</option><option>Fashion</option><option>Food</option><option>Sport</option><option>Beauty</option><option>Haushalt</option><option>Sonstiges</option></select>
+      </div>
+      <div class="fg"><label>Zahlung</label>
+        <select id="d-pay"><option>💵 Bar</option></select>
+      </div>
+
+    </div>
+    <div class="fg"><label>Anmerkung</label><textarea id="d-note" rows="3" placeholder="z.B. Bitte klingeln…"></textarea></div>
+  </div>
+  <button class="post-btn" id="post-btn" onclick="postOrder()">📤 Bestellung jetzt posten</button>
+</div>
+
+<div class="page" id="page-orders">
+  <div class="pgtitle">Meine <em>Bestellungen</em> 📦</div>
+  <div class="pgsub">Live synchronisiert — auch auf anderen Geräten sichtbar.</div>
+  <div class="stats">
+    <div class="stat"><div class="stl">Total</div><div class="stv ci" id="s-total">0</div></div>
+    <div class="stat"><div class="stl">Ausgegeben</div><div class="stv ca" id="s-spent">€0,00</div></div>
+    <div class="stat"><div class="stl">Zugestellt</div><div class="stv cg" id="s-done">0</div></div>
+  </div>
+  <div class="olist" id="orders-list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction }
+                               from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║   ✏️  DEINEN FIREBASE CONFIG HIER EINFÜGEN              ║
+// ║   Firebase Console → Project Settings → Deine Web-App   ║
+// ╚══════════════════════════════════════════════════════════╝
+const firebaseConfig = {
+  apiKey:            "AIzaSyAcikzCvKFt26eX7J-3vOdZu-b1Fe0X4lk",
+  authDomain:        "illegalo-shopzone.firebaseapp.com",
+  projectId:         "illegalo-shopzone",
+  storageBucket:     "illegalo-shopzone.firebasestorage.app",
+  messagingSenderId: "73845830641",
+  appId:             "1:73845830641:web:4e9e8967ac4a18b6da4a50"
+};
+
+
+function initFirebase() {
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const col = collection(db, "orders");
+
+// ── Presence heartbeat (für Dev Panel "Live Users") ──
+const presSid = sessionStorage.getItem("illegalo_shop_sid") || (() => {
+  const id = "p-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  sessionStorage.setItem("illegalo_shop_sid", id);
+  return id;
+})();
+// ── Device/Browser-Erkennung (für Dev Panel "Live Users") ──
+function getDeviceLabel() {
+  const ua = navigator.userAgent;
+  let os = "Unbekannt";
+  if (/iPhone/.test(ua)) os = "iPhone";
+  else if (/iPad/.test(ua)) os = "iPad";
+  else if (/Android/.test(ua)) os = "Android";
+  else if (/Macintosh|Mac OS X/.test(ua)) os = "Mac";
+  else if (/Windows/.test(ua)) os = "Windows";
+  else if (/Linux/.test(ua)) os = "Linux";
+  let browser = "Unbekannt";
+  if (/Edg\//.test(ua)) browser = "Edge";
+  else if (/OPR\//.test(ua) || /Opera/.test(ua)) browser = "Opera";
+  else if (/CriOS/.test(ua)) browser = "Chrome";
+  else if (/FxiOS/.test(ua)) browser = "Firefox";
+  else if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) browser = "Chrome";
+  else if (/Firefox\//.test(ua)) browser = "Firefox";
+  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = "Safari";
+  return `${os} · ${browser}`;
+}
+
+async function heartbeat() {
+  try { await setDoc(doc(db,"presence",presSid), { page:"shop", user:"Gast", device:getDeviceLabel(), lastSeen: serverTimestamp() }); } catch(e) {}
+}
+heartbeat();
+setInterval(heartbeat, 20000);
+
+const fmt     = n => "€"+Number(n).toFixed(2).replace(".",",");
+const fmtDt   = iso => { const d=new Date(iso); return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})+", "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}); };
+const pillCls = s => ({Verarbeitung:"pV",Versandt:"pS",Zugestellt:"pZ",Storniert:"pX"}[s]||"pV");
+
+function setConn(ok) {
+  document.getElementById("conn-dot").className    = "conn-dot"+(ok?" ok":"");
+  document.getElementById("conn-label").textContent = ok?"Live":"Offline";
+  document.getElementById("conn-label").style.color = ok?"var(--gr)":"var(--re)";
+}
+
+const EMOJIS = ["📦","🎧","💻","🎮","👟","🧥","🍕","⚡","💪","🔌","📷","🖱️","🪑","🧢","⚽","🍜","📱","🎁","🛒","✨","🎵","📚","🧴","🏋️","🚗"];
+let items = [{name:"",emoji:"📦",qty:1,price:""}];
+let epOpen = null;
+
+function calcTotal() { return items.reduce((s,it)=>s+(parseFloat(String(it.price).replace(",","."))||0)*(parseInt(it.qty)||1),0); }
+
+function renderItems() {
+  const c = document.getElementById("items-container");
+  c.innerHTML = items.map((it,i)=>`
+    <div>
+      ${i>0?'<div class="divr"></div>':""}
+      <div class="fg" style="margin-bottom:.5rem">
+        <label>Icon</label>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <button class="em-trigger" onclick="toggleEmoji(${i})">${it.emoji}</button>
+          <span style="color:var(--mu);font-size:.78rem">Klick zum Wechseln</span>
+        </div>
+        ${epOpen===i?`<div class="em-grid">${EMOJIS.map(em=>`<button class="em-o${it.emoji===em?" sel":""}" onclick="pickEmoji(${i},'${em}')">${em}</button>`).join("")}</div>`:""}
+      </div>
+      <div class="arow">
+        <div class="fg" style="flex:2.5"><label>Produktname *</label>
+          <input type="text" placeholder="z.B. Nike Air Max" value="${it.name.replace(/"/g,'&quot;')}" oninput="setItemNoRender(${i},'name',this.value)" style="min-height:42px"/>
+        </div>
+        <div class="fg" style="flex:0 0 80px"><label>Menge</label>
+          <input type="number" min="1" value="${it.qty}" oninput="setItem(${i},'qty',this.value)"/>
+        </div>
+        <div class="fg" style="flex:0 0 110px"><label>Preis (€) *</label>
+          <input type="text" inputmode="decimal" placeholder="0,00" value="${it.price}" oninput="setItemNoRender(${i},'price',this.value)" onblur="updateTotal()"/>
+        </div>
+        ${items.length>1?`<button class="xbtn" onclick="removeItem(${i})">✕</button>`:""}
+      </div>
+    </div>`).join("");
+  document.getElementById("total-display").textContent = fmt(calcTotal());
+}
+
+window.toggleEmoji     = i => { epOpen=epOpen===i?null:i; renderItems(); };
+window.pickEmoji       = (i,em) => { items[i].emoji=em; epOpen=null; renderItems(); };
+window.setItem         = (i,k,v) => { items[i][k]=v; renderItems(); };
+window.setItemNoRender = (i,k,v) => { items[i][k]=v; document.getElementById("total-display").textContent=fmt(calcTotal()); };
+window.updateTotal     = () => { document.getElementById("total-display").textContent=fmt(calcTotal()); };
+window.removeItem      = i => { items.splice(i,1); renderItems(); };
+window.addItem         = () => { items.push({name:"",emoji:"📦",qty:1,price:""}); renderItems(); };
+
+async function getNextOrderNumber() {
+  const counterRef = doc(db, "meta", "orderCounter");
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(counterRef);
+      const current = snap.exists() ? (snap.data().value || 0) : 0;
+      const next = current + 1;
+      tx.set(counterRef, { value: next });
+      return next;
+    });
+  } catch(e) { return null; }
+}
+
+window.postOrder = async () => {
+  const name    = document.getElementById("c-name").value.trim();
+  const address = document.getElementById("c-address").value.trim();
+  if (!name)    return showToast("Name fehlt! 😤",true);
+  if (!address) return showToast("Adresse fehlt! 📍",true);
+  if (items.some(it=>!it.name.trim()||!it.price)) return showToast("Alle Artikel ausfüllen! 📝",true);
+  const btn = document.getElementById("post-btn");
+  btn.disabled=true; btn.textContent="Wird gepostet…";
+  try {
+    const orderNumber = await getNextOrderNumber();
+    await addDoc(col, {
+      orderNumber,
+      date: new Date().toISOString(), created: serverTimestamp(),
+      customer: { name, address },
+      items: items.map(it=>({name:it.name,icon:it.emoji,qty:parseInt(it.qty)||1,price:parseFloat(String(it.price).replace(",","."))||0})),
+      total: calcTotal(),
+      cat:  document.getElementById("d-cat").value,
+      pay:  "💵 Bar",
+      ship: "Abholung",
+      note: document.getElementById("d-note").value.trim(),
+      status: "Verarbeitung",
+    });
+    ["c-name","c-address","d-note"].forEach(id=>document.getElementById(id).value="");
+    items=[{name:"",emoji:"📦",qty:1,price:""}]; renderItems();
+    showToast("Order gepostet! Bussin 🔥");
+    setTimeout(()=>showPage("orders"),900);
+  } catch(e){ showToast("Firebase Error: "+e.message,true); }
+  btn.disabled=false; btn.textContent="📤 Bestellung jetzt posten";
+};
+
+let allOrders=[];
+const q = query(col, orderBy("created","desc"));
+onSnapshot(q,
+  snap => {
+    setConn(true);
+    allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderOrdersList();
+    document.getElementById("loading").style.display="none";
+  },
+  err => { setConn(false); document.getElementById("loading").style.display="none"; }
+);
+
+function fmtOrderNum(o) {
+  return o.orderNumber ? "#"+String(o.orderNumber).padStart(3,"0") : o.id.slice(0,10)+"…";
+}
+
+function renderOrdersList() {
+  const spent=allOrders.filter(o=>o.status!=="Storniert").reduce((s,o)=>s+o.total,0);
+  const done=allOrders.filter(o=>o.status==="Zugestellt").length;
+  document.getElementById("s-total").textContent=allOrders.length;
+  document.getElementById("s-spent").textContent=fmt(spent);
+  document.getElementById("s-done").textContent=done;
+  document.getElementById("order-count").textContent=allOrders.length>0?`(${allOrders.length})`:"";
+  const list=document.getElementById("orders-list");
+  if(!allOrders.length){ list.innerHTML=`<div class="empty"><div style="font-size:3.5rem">📭</div><h2>Noch keine Orders.</h2></div>`; return; }
+  list.innerHTML=allOrders.map(o=>`
+    <div class="oc">
+      <div><div class="oid">${fmtOrderNum(o)}</div><div class="odt">${fmtDt(o.date)}</div></div>
+      <span class="pill ${pillCls(o.status)}">${o.status}</span>
+      <span class="onam">👤 ${o.customer?.name||"?"}</span>
+      <span class="oamt">${fmt(o.total)}</span>
+    </div>`).join("");
+}
+
+window.showPage = name => {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("on"));
+  document.querySelectorAll(".nb").forEach(b=>b.classList.remove("on"));
+  document.getElementById("page-"+name).classList.add("on");
+  document.getElementById("btn-"+name).classList.add("on");
+};
+
+function showToast(msg,err=false) {
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className="toast show"+(err?" err":"");
+  setTimeout(()=>t.className="toast",3200);
+}
+
+renderItems();
+} // end initFirebase
+initFirebase();
+</script>
+</body>
+</html>
