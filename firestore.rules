@@ -1,0 +1,169 @@
+// ════════════════════════════════════════════════════════════════
+//  Illegalo — Firestore Security Rules
+//  Ersetzt "allow read, write: if true"
+// ════════════════════════════════════════════════════════════════
+//
+//  ⚠️ WICHTIGER HINWEIS (ehrlich, kein Bullshit):
+//  Dieses Projekt hat KEIN echtes Firebase Auth — Login läuft komplett
+//  client-seitig (Passwort-Hash-Vergleich im Browser-JS). Das heißt:
+//  Firestore Rules können NICHT unterscheiden "ist das wirklich
+//  maxipribil" vs "ist das ein Bot, der die Login-Maske umgeht und
+//  direkt mit der Firestore-SDK redet". Es gibt schlicht keine
+//  Identität, die die Rules prüfen könnten (request.auth ist immer null).
+//
+//  Was diese Rules TROTZDEM bringen (und das ist nicht wenig):
+//  ✅ Nur die hier gelisteten Collections sind überhaupt erreichbar —
+//     alles andere ist automatisch zu (Firestore deny-by-default für
+//     nicht gematchte Pfade). Vorher war via "if true" + Wildcard
+//     wahrscheinlich JEDE Collection in deinem Projekt offen.
+//  ✅ Jedes Dokument muss eine plausible Form haben (richtige Felder,
+//     richtige Typen, sinnvolle Längen-/Größen-Limits). Garbage-Spam,
+//     überdimensionierte Fake-Docs oder kaputte Datenstrukturen, die
+//     deine App crashen würden, werden abgelehnt.
+//  ✅ auditLog ist komplett unveränderlich (nur create, nie update/delete)
+//     — ein echtes Audit-Log, das niemand nachträglich frisieren kann.
+//
+//  Was NICHT möglich ist ohne echtes Auth:
+//  ❌ "Nur Admin darf löschen" / "Lieferant darf nur eigene Orders
+//     updaten" — technisch nicht erzwingbar ohne Identität.
+//  Wenn das wirklich wichtig wird: Stufe 2 wäre Firebase Auth (z.B.
+//  Email/Passwort oder Custom Claims) statt dem aktuellen
+//  SHA-256-im-Browser-Vergleich. Das ist aber ein größerer Umbau, den
+//  ich nicht "nebenbei" einbauen wollte ohne dass du Bescheid weißt —
+//  sag Bescheid falls du das als nächsten Schritt willst.
+//
+//  DEPLOY:
+//  Firebase Console → Firestore Database → Regeln → Inhalt hier
+//  einfügen → "Veröffentlichen". Falls danach irgendwas in der App
+//  nicht mehr geht: einfach zurück zu "allow read, write: if true"
+//  wechseln (alte Version vorher irgendwo sichern) und mir Bescheid
+//  geben was kaputt ist.
+// ════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── orders ──────────────────────────────────────────────
+    // Shop ist bewusst öffentlich (jeder sieht alle Bestellungen,
+    // Freundeskreis-Modell) → read bleibt offen.
+    match /orders/{orderId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasAll(
+                        ['customer','items','total','status','cat','pay','ship','date']
+                      )
+                    && request.resource.data.customer is map
+                    && request.resource.data.customer.name is string
+                    && request.resource.data.customer.name.size() > 0
+                    && request.resource.data.customer.name.size() < 120
+                    && request.resource.data.customer.address is string
+                    && request.resource.data.customer.address.size() > 0
+                    && request.resource.data.customer.address.size() < 300
+                    && request.resource.data.items is list
+                    && request.resource.data.items.size() > 0
+                    && request.resource.data.items.size() <= 50
+                    && request.resource.data.total is number
+                    && request.resource.data.total >= 0
+                    && request.resource.data.total < 100000
+                    && request.resource.data.status is string
+                    && request.resource.data.cat is string
+                    && request.resource.data.pay is string
+                    && request.resource.data.ship is string;
+
+      // Update: Status/Zuweisung/Artikel/Notiz/Verlauf dürfen geändert
+      // werden, aber die Grundform muss weiter stimmen (kein Wegmurksen
+      // von Pflichtfeldern, keine absurden Werte).
+      allow update: if request.resource.data.customer is map
+                    && request.resource.data.customer.name is string
+                    && request.resource.data.items is list
+                    && request.resource.data.items.size() <= 50
+                    && request.resource.data.total is number
+                    && request.resource.data.total >= 0
+                    && request.resource.data.total < 100000
+                    && request.resource.data.status is string
+                    // orderNumber darf sich nie ändern, sonst sind
+                    // Tracking-Links/CSV-Exports im Chaos
+                    && request.resource.data.orderNumber == resource.data.orderNumber;
+
+      // Löschen kann ohne Auth nicht auf "nur Admin" eingeschränkt
+      // werden (siehe Hinweis oben) — bleibt offen.
+      allow delete: if true;
+    }
+
+    // ── meta/orderCounter ───────────────────────────────────
+    // Fortlaufende Bestellnummer via Transaction.
+    match /meta/orderCounter {
+      allow read: if true;
+      allow write: if request.resource.data.value is int
+                   && request.resource.data.value >= 0
+                   && request.resource.data.value < 1000000;
+    }
+
+    // ── presence (Live-User-Tracking) ───────────────────────
+    match /presence/{sessionId} {
+      allow read: if true;
+      allow delete: if true; // Dev Panel räumt alte Einträge auf
+      allow create, update: if request.resource.data.page in ['shop','admin','lieferant']
+                             && request.resource.data.user is string
+                             && request.resource.data.user.size() < 60
+                             && request.resource.data.device is string
+                             && request.resource.data.device.size() < 80;
+    }
+
+    // ── customerNotes (Admin-Notizen pro Kunde) ─────────────
+    match /customerNotes/{noteId} {
+      allow read: if true;
+      allow write: if request.resource.data.name is string
+                   && request.resource.data.note is string
+                   && request.resource.data.note.size() < 2000
+                   && request.resource.data.updatedBy is string;
+    }
+
+    // ── auditLog (Lösch-Protokoll — UNVERÄNDERLICH) ─────────
+    match /auditLog/{entryId} {
+      allow read: if true;
+      allow create: if request.resource.data.action is string
+                    && request.resource.data.by is string
+                    && request.resource.data.at is string;
+      allow update, delete: if false; // echtes Audit-Log: niemand darf's nachträglich anfassen
+    }
+
+    // ── errorLog (automatisches JS-Error-Logging) ───────────
+    match /errorLog/{entryId} {
+      allow read: if true;
+      allow delete: if true; // Dev Panel "Alle Logs löschen"
+      allow create: if request.resource.data.page is string
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() < 2000;
+      allow update: if false;
+    }
+
+    // ── blockedUsers (Login-Sperren aus dem Dev Panel) ──────
+    match /blockedUsers/{username} {
+      allow read: if true;
+      allow write: if request.resource.data.blocked is bool;
+    }
+
+    // ── lieferantAvailability (Verfügbarkeits-Toggle) ───────
+    match /lieferantAvailability/{lieferant} {
+      allow read: if true;
+      allow write: if request.resource.data.available is bool;
+    }
+
+    // ── siteStatus/main (Maintenance-Schalter + Zeitplan) ───
+    match /siteStatus/main {
+      allow read: if true;
+      allow write: if (!('shop' in request.resource.data) || request.resource.data.shop is bool)
+                   && (!('admin' in request.resource.data) || request.resource.data.admin is bool)
+                   && (!('lieferant' in request.resource.data) || request.resource.data.lieferant is bool)
+                   && (!('scheduleEnabled' in request.resource.data) || request.resource.data.scheduleEnabled is bool)
+                   && (!('reason' in request.resource.data)
+                       || request.resource.data.reason == null
+                       || request.resource.data.reason in ['ferien','krank','geschlossen','mittagspause']);
+    }
+
+    // Alles andere: automatisch zu (kein Wildcard-Match = deny by default)
+  }
+}
