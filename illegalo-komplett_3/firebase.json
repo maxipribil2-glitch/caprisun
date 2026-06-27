@@ -1,0 +1,19 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "README.md",
+      "gc-firestore.rules",
+      "database.rules.json",
+      ".firebaserc"
+    ]
+  },
+  "firestore": {
+    "rules": "gc-firestore.rules"
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}
