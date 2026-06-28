@@ -1,0 +1,11 @@
+{
+  "name": "Illegalo Admin",
+  "short_name": "Admin",
+  "start_url": "admin.html",
+  "display": "standalone",
+  "background_color": "#08090f",
+  "theme_color": "#f59e0b",
+  "icons": [
+    { "src": "icon-admin.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
