@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Bilanz</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap" style="max-width:520px;">
+
+  <div class="topbar">
+    <div class="page-title" style="font-size:14px;"><span class="accent-dot" style="background:var(--gr);"></span>Bilanz</div>
+    <button class="ghost" id="leave-btn">Zur Lobby</button>
+  </div>
+
+  <div class="shop-ad" id="shop-ad"></div>
+
+  <div class="panel">
+    <h2>🏆 Gesamtwertung</h2>
+    <ul class="leaderboard" id="overall-list"><li class="empty">Lade...</li></ul>
+  </div>
+
+  <div class="panel">
+    <h2>🎮 Pro Spiel</h2>
+    <div id="per-game"></div>
+  </div>
+
+  <div class="panel">
+    <h2>📜 Letzte Matches</h2>
+    <ul class="leaderboard" id="recent-list"><li class="empty">Lade...</li></ul>
+  </div>
+
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.1</div>
+
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="stats.js"></script>
+</body>
+</html>
