@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Breakout</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap" style="max-width:460px;">
+
+  <div class="topbar">
+    <div class="page-title" style="font-size:14px;"><span class="accent-dot" style="background:var(--re);"></span>Breakout</div>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+
+  <div class="panel center">
+    <canvas class="game-canvas" id="bo-canvas" width="360" height="420"></canvas>
+    <div class="game-hud">
+      <span id="score">Score: 0</span>
+      <span id="lives">Leben: 3</span>
+      <span id="best">Best: —</span>
+    </div>
+    <div id="status" style="margin-bottom:8px;"></div>
+    <button id="restart-btn" class="hidden">Nochmal</button>
+    <div class="dpad" style="grid-template-columns:64px 64px;grid-template-rows:54px;">
+      <button class="dpad-btn" id="pad-left" style="grid-column:1;grid-row:1;">◀</button>
+      <button class="dpad-btn" id="pad-right" style="grid-column:2;grid-row:1;">▶</button>
+    </div>
+    <div class="hint">Pfeiltasten ←/→ oder A/D — oder die Buttons gedrückt halten. Touch/Maus geht auch: einfach übers Spielfeld ziehen.</div>
+  </div>
+
+  <div class="panel">
+    <h2>🏆 Top 5</h2>
+    <ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul>
+  </div>
+
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.1</div>
+
+<style>.hidden{display:none;}</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="breakout.js"></script>
+</body>
+</html>
