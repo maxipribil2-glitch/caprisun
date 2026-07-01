@@ -14,6 +14,7 @@ const db = getFirestore(app);
 
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get("room");
+const isSpectator = params.get("spectate") === "1";
 
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
@@ -68,10 +69,15 @@ onAuthStateChanged(auth, (user) => {
 function render() {
   const room = currentRoom;
   maybeShowReaction(room);
-  const mySymbol = room.symbols[myUid];
+  const mySymbol = isSpectator ? null : room.symbols[myUid];
   const otherUid = room.players.find(p => p !== myUid);
   const otherName = room.playerNames[otherUid] || "Gegner";
-  namesEl.textContent = `${room.playerNames[myUid]} (${mySymbol}) vs ${otherName} (${room.symbols[otherUid]})`;
+  if (isSpectator) {
+    const [p1, p2] = room.players;
+    namesEl.textContent = `👁️ Zuschauen: ${room.playerNames[p1]||"?"} (X) vs ${room.playerNames[p2]||"?"} (O)`;
+  } else {
+    namesEl.textContent = `${room.playerNames[myUid]} (${mySymbol}) vs ${otherName} (${room.symbols[otherUid]})`;
+  }
 
   const fillCount = room.board.filter(c => c).length;
   if (fillCount > lastBoardFill && room.status !== "finished") sfx.move();
@@ -82,7 +88,7 @@ function render() {
     const btn = document.createElement("button");
     btn.className = "cell";
     btn.textContent = cell || "";
-    btn.disabled = !!cell || room.status !== "active" || room.turn !== myUid;
+    btn.disabled = !!cell || room.status !== "active" || room.turn !== myUid || isSpectator;
     btn.addEventListener("click", () => playMove(i));
     boardEl.appendChild(btn);
   });
@@ -108,7 +114,7 @@ function render() {
 
 async function playMove(i) {
   const room = currentRoom;
-  if (room.board[i] || room.status !== "active" || room.turn !== myUid) return;
+  if (room.board[i] || room.status !== "active" || room.turn !== myUid || isSpectator) return;
   const mySymbol = room.symbols[myUid];
   const newBoard = [...room.board];
   newBoard[i] = mySymbol;

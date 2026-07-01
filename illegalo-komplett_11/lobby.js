@@ -9,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 import {
   getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
-  query, where, onSnapshot, serverTimestamp as fsTimestamp
+  query, where, onSnapshot, serverTimestamp as fsTimestamp, setDoc, getDoc, getDocs
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const auth = getAuth(app);
@@ -147,10 +147,39 @@ if (arcadeGridEl) {
 
 renderShopAd("shop-ad");
 
+// ── Daily Challenge ──
+const CHALLENGES = [
+  { game: "snake", page: "snake.html", name: "Snake", rule: "Erreiche Score 15 ohne Wandtreffer — auf Speed-Level 2 ab 10 Punkten." },
+  { game: "breakout", page: "breakout.html", name: "Breakout", rule: "Räum alle Steine in einer Runde weg — kein Leben verlieren!" },
+  { game: "tictactoe", name: "Tic-Tac-Toe", rule: "Gewinne 3 Runden in Folge gegen denselben Gegner — Rematch nach jedem Sieg." },
+  { game: "pong", name: "Pong", rule: "Gewinne mit 5:0 — kein einziger Punkt für den Gegner!" },
+  { game: "connect4", name: "Vier Gewinnt", rule: "Gewinne in weniger als 7 Zügen (diagonal oder horizontal)." },
+  { game: "katapult", name: "Katapult Tower", rule: "Triff die Gegner-Figur im ersten Schuss — kein Fehlschuss erlaubt." },
+  { game: "snake", page: "snake.html", name: "Snake", rule: "Sammle 5 Äpfel ohne eine Wende nach rechts — nur links, oben, unten!" },
+];
+function renderDailyChallenge() {
+  const el = document.getElementById("daily-challenge-content");
+  if (!el) return;
+  const today = new Date();
+  const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+  const ch = CHALLENGES[seed % CHALLENGES.length];
+  const isArcade = ch.page;
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  const resetTime = tomorrow.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"}) + " 00:00 Uhr";
+  el.innerHTML = `<div class="challenge-card">
+    <div class="challenge-game">${ch.name}</div>
+    <div class="challenge-rule">${ch.rule}</div>
+    <div class="challenge-meta">🔄 Reset: ${resetTime}</div>
+    ${isArcade ? `<a href="${ch.page}" class="btn" style="display:inline-block;margin-top:12px;font-size:11px;">Jetzt spielen →</a>` : ""}
+  </div>`;
+}
+renderDailyChallenge();
+
 let myUid = null;
 let myName = null;
 let redirected = false;
 const declinedSeen = new Set();
+let favorites = new Set(); // UIDs der Lieblingsgegner, persistiert in Firestore
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
@@ -161,10 +190,50 @@ onAuthStateChanged(auth, (user) => {
   myName = user.displayName || user.email;
   whoEl.innerHTML = `eingeloggt als <span>${myName}</span>`;
   goOnline();
+  loadFavorites();
   listenOnlineUsers();
   listenIncomingInvites();
   listenMySentInvites();
+  listenActiveRooms();
+  requestNotifPermission();
 });
+
+async function loadFavorites() {
+  try {
+    const snap = await getDoc(doc(db, "gcFavorites", myUid));
+    favorites = new Set(snap.exists() ? (snap.data().uids || []) : []);
+  } catch (e) {}
+}
+
+window.toggleFavorite = async (uid) => {
+  if (favorites.has(uid)) favorites.delete(uid);
+  else favorites.add(uid);
+  try {
+    await setDoc(doc(db, "gcFavorites", myUid), { uids: Array.from(favorites) });
+  } catch (e) {}
+  renderPlayerList(lastOnlineUsers);
+};
+
+// ── Push-Benachrichtigung bei Invite, auch wenn der Tab nicht aktiv ist ──
+function requestNotifPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
+}
+function showInviteNotif(fromName, game) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (document.visibilityState === "visible") return; // schon im Tab, kein Notif nötig
+  const title = "🎮 Neue Einladung!";
+  const body = `${fromName} fordert dich zu ${game} raus`;
+  if ("serviceWorker" in navigator && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, { body, icon: "icon-shop.png", tag: "gc-invite", renotify: true, data: { url: "lobby.html" } });
+    }).catch(() => { try { new Notification(title, { body }); } catch(e) {} });
+  } else {
+    try { new Notification(title, { body }); } catch(e) {}
+  }
+}
 
 function goOnline() {
   const myStatusRef = ref(rtdb, "status/" + myUid);
@@ -178,6 +247,8 @@ function goOnline() {
   });
 }
 
+let lastOnlineUsers = [];
+
 function listenOnlineUsers() {
   const statusRef = ref(rtdb, "status");
   onValue(statusRef, (snap) => {
@@ -185,22 +256,37 @@ function listenOnlineUsers() {
     const others = Object.entries(data).filter(
       ([uid, v]) => uid !== myUid && v.state === "online"
     );
-    if (others.length === 0) {
-      playerListEl.innerHTML = `<li class="empty">Niemand sonst online grad. Schick deinen Kumpel den Link 👀</li>`;
-      return;
-    }
-    playerListEl.innerHTML = "";
-    others.forEach(([uid, v]) => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <span><span class="dot"></span>${v.username || "Unbekannt"}</span>
-        <button data-uid="${uid}" data-name="${v.username || "Unbekannt"}" class="invite-btn">EINLADEN</button>
-      `;
-      playerListEl.appendChild(li);
-    });
-    playerListEl.querySelectorAll(".invite-btn").forEach(btn => {
-      btn.addEventListener("click", () => sendInvite(btn.dataset.uid, btn.dataset.name));
-    });
+    lastOnlineUsers = others;
+    renderPlayerList(others);
+  });
+}
+
+function renderPlayerList(others) {
+  if (others.length === 0) {
+    playerListEl.innerHTML = `<li class="empty">Niemand sonst online grad. Schick deinen Kumpel den Link 👀</li>`;
+    return;
+  }
+  // Favoriten zuerst, Rest danach alphabetisch
+  const sorted = [...others].sort((a, b) => {
+    const aFav = favorites.has(a[0]), bFav = favorites.has(b[0]);
+    if (aFav !== bFav) return aFav ? -1 : 1;
+    return (a[1].username || "").localeCompare(b[1].username || "");
+  });
+  playerListEl.innerHTML = "";
+  sorted.forEach(([uid, v]) => {
+    const isFav = favorites.has(uid);
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span><button class="fav-star${isFav ? " on" : ""}" data-uid="${uid}" title="Favorit">★</button><span class="dot"></span>${v.username || "Unbekannt"}</span>
+      <button data-uid="${uid}" data-name="${v.username || "Unbekannt"}" class="invite-btn">EINLADEN</button>
+    `;
+    playerListEl.appendChild(li);
+  });
+  playerListEl.querySelectorAll(".invite-btn").forEach(btn => {
+    btn.addEventListener("click", () => sendInvite(btn.dataset.uid, btn.dataset.name));
+  });
+  playerListEl.querySelectorAll(".fav-star").forEach(btn => {
+    btn.addEventListener("click", () => toggleFavorite(btn.dataset.uid));
   });
 }
 
@@ -220,6 +306,8 @@ async function sendInvite(toUid, toName) {
   });
 }
 
+const notifiedInviteIds = new Set();
+
 function listenIncomingInvites() {
   const q = query(collection(db, "invites"), where("to", "==", myUid), where("status", "==", "pending"));
   onSnapshot(q, (snap) => {
@@ -230,6 +318,10 @@ function listenIncomingInvites() {
     incomingEl.innerHTML = "";
     snap.forEach((d) => {
       const inv = d.data();
+      if (!notifiedInviteIds.has(d.id)) {
+        notifiedInviteIds.add(d.id);
+        showInviteNotif(inv.fromName, inv.gameName);
+      }
       const card = document.createElement("div");
       card.className = "invite-card";
       card.innerHTML = `
@@ -296,3 +388,31 @@ logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   window.location.href = "gc-index.html";
 });
+
+function listenActiveRooms() {
+  const spectateListEl = document.getElementById("spectate-list");
+  if (!spectateListEl) return;
+  const q = query(collection(db, "rooms"), where("status", "==", "active"));
+  onSnapshot(q, snap => {
+    const rooms = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => r.players && !r.players.includes(myUid)) // nicht eigene Matches
+      .slice(0, 8);
+    if (!rooms.length) {
+      spectateListEl.innerHTML = `<div class="empty">Keine aktiven Matches gerade.</div>`;
+      return;
+    }
+    const GAME_NAMES = { tictactoe:"Tic-Tac-Toe", snakeio:"Snake.io", katapult:"Katapult Tower", connect4:"Vier Gewinnt", pong:"Pong" };
+    spectateListEl.innerHTML = rooms.map(r => {
+      const names = Object.values(r.playerNames || {}).join(" vs ") || "Unbekannte Spieler";
+      const game = GAME_NAMES[r.game] || r.game || "Match";
+      return `<li style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed var(--bd);">
+        <div>
+          <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:var(--bl);margin-bottom:3px;">${game}</div>
+          <div style="font-size:16px;">${names}</div>
+        </div>
+        <a href="${gamePage(r.game)}?room=${r.id}&spectate=1" class="btn ghost" style="font-size:9px;padding:8px 12px;">👁️ Zuschauen</a>
+      </li>`;
+    }).join("");
+  });
+}

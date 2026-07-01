@@ -20,6 +20,7 @@ const db = getFirestore(app);
 
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get("room");
+const isSpectator = params.get("spectate") === "1";
 
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");

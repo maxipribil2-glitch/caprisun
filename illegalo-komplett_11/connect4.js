@@ -18,6 +18,7 @@ const COLS = 7, ROWS = 6;
 
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get("room");
+const isSpectator = params.get("spectate") === "1";
 
 const boardEl = document.getElementById("c4-board");
 const statusEl = document.getElementById("status");
@@ -132,6 +133,7 @@ function render() {
 }
 
 async function playMove(col) {
+  if (isSpectator) return;
   const room = currentRoom;
   if (room.status !== "active" || room.turn !== myUid) return;
   const row = lowestEmptyRow(room.board, col);

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Turnier</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap" style="max-width:480px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:14px;"><span class="accent-dot" style="background:var(--am);"></span>Turnier</div>
+    <button class="ghost" id="leave-btn">← Lobby</button>
+  </div>
+
+  <div id="t-lobby" class="panel">
+    <h2>🏆 Turnier starten</h2>
+    <p style="font-size:16px;color:var(--mu);">Wähle ein Spiel und erstelle ein Turnier. Bis zu 4 Spieler können beitreten, dann geht's los — Halbfinale → Finale, Best-of-1.</p>
+    <label style="font-size:15px;color:var(--mu);display:block;margin-bottom:6px;">Spiel</label>
+    <select id="t-game-select" style="width:100%;background:var(--bg);border:2px solid var(--bd);color:var(--tx);font-family:'VT323',monospace;font-size:19px;padding:10px 13px;border-radius:3px;margin-bottom:14px;">
+      <option value="tictactoe">Tic-Tac-Toe</option>
+      <option value="connect4">Vier Gewinnt</option>
+      <option value="katapult">Katapult Tower</option>
+      <option value="pong">Pong</option>
+    </select>
+    <button id="create-btn">+ Turnier erstellen</button>
+    <div style="margin:14px 0;text-align:center;color:var(--mu);font-size:15px;">— oder —</div>
+    <label style="font-size:15px;color:var(--mu);display:block;margin-bottom:6px;">Turnier-Code eingeben</label>
+    <div style="display:flex;gap:8px;">
+      <input id="join-code" placeholder="z.B. A7X3" style="flex:1;background:var(--bg);border:2px solid var(--bd);color:var(--tx);font-family:'VT323',monospace;font-size:22px;padding:10px 13px;border-radius:3px;text-transform:uppercase;" />
+      <button id="join-btn">Beitreten</button>
+    </div>
+    <div id="t-err" style="color:var(--re);font-size:15px;min-height:18px;margin-top:8px;"></div>
+  </div>
+
+  <div id="t-room" class="panel" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin:0;" id="t-title">Turnier</h2>
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:var(--am);" id="t-code"></div>
+    </div>
+    <div id="t-phase" style="font-size:15px;color:var(--mu);margin-bottom:12px;"></div>
+    <div id="t-bracket"></div>
+    <button id="t-start-btn" class="hidden" style="margin-top:14px;">▶ Turnier starten</button>
+    <button id="t-leave-btn" class="ghost" style="margin-top:8px;">Turnier verlassen</button>
+  </div>
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0</div>
+<style>.hidden{display:none;}</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="tournament.js"></script>
+</body>
+</html>

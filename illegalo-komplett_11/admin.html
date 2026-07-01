@@ -329,7 +329,7 @@ button{font-family:'Inter',sans-serif;}
   <div class="maint-sub" id="maint-sub">Wurde kurz ausgeschaltet. Spiel solang ne Runde Dino! 🦖</div>
   <canvas id="dino-canvas" width="320" height="160"></canvas>
 </div>
-<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v3.4</div>
+<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v3.5</div>
 <div id="loading" style="display:none"><div class="spinner"></div><p>Verbinde mit Firebase…</p></div>
 
 <!-- CUSTOM CONFIRM MODAL -->
@@ -431,10 +431,27 @@ button{font-family:'Inter',sans-serif;}
         <span class="session-info" id="last-update"></span>
         <button class="mute-btn" id="mute-btn" onclick="toggleMute()" title="Sound an/aus">🔔</button>
         <button class="share-btn" onclick="openQrModal()">📲 Shop teilen</button>
+        <button class="share-btn" onclick="openPwModal()" title="Passwort ändern" style="padding:5px 10px;">🔑</button>
         <div class="live-dot" id="live-dot"></div>
         <span class="live-lbl" id="live-lbl">Verbinde…</span>
         <span class="session-info" id="session-info"></span>
         <button class="logout-btn" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- PW-ÄNDERN MODAL -->
+    <div id="pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3001;display:none;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:var(--sf);border:1.5px solid var(--bd);border-radius:16px;padding:24px;width:100%;max-width:360px;">
+        <h3 style="margin:0 0 16px;font-size:1rem">🔑 Passwort ändern</h3>
+        <label style="font-size:.75rem;color:var(--mu);display:block;margin-bottom:4px">Neues Passwort</label>
+        <input type="password" id="pw-new" placeholder="mind. 8 Zeichen" style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;color:var(--tx);padding:9px 12px;font-family:Inter,sans-serif;font-size:.88rem;margin-bottom:10px;box-sizing:border-box;" />
+        <label style="font-size:.75rem;color:var(--mu);display:block;margin-bottom:4px">Passwort wiederholen</label>
+        <input type="password" id="pw-confirm" placeholder="nochmal eingeben" style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;color:var(--tx);padding:9px 12px;font-family:Inter,sans-serif;font-size:.88rem;margin-bottom:10px;box-sizing:border-box;" />
+        <div id="pw-err" style="font-size:.78rem;color:var(--re);min-height:16px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;">
+          <button onclick="closePwModal()" style="background:var(--s2);border:1.5px solid var(--bd);border-radius:8px;color:var(--mu);padding:8px 16px;cursor:pointer;font-size:.82rem;">Abbrechen</button>
+          <button onclick="submitPwChange()" style="background:var(--in);border:none;border-radius:8px;color:#fff;padding:8px 16px;cursor:pointer;font-weight:700;font-size:.82rem;" id="pw-submit-btn">Speichern</button>
+        </div>
       </div>
     </div>
 
@@ -482,7 +499,9 @@ button{font-family:'Inter',sans-serif;}
         <h2>Alle Bestellungen</h2>
         <input class="search-box" placeholder="🔍 Suchen…" oninput="setSearch(this.value)"/>
         <button class="sf" id="today-toggle" onclick="toggleTodayFilter()">📅 Nur heute</button>
-        <button class="export-btn" onclick="exportCSV()">⬇️ CSV Export</button>
+        <button class="sf" id="sort-lief-btn" onclick="toggleSortLieferant()" title="Nach Lieferant-Zuweisung sortieren">🛵 Nach Lieferant</button>
+        <button class="export-btn" onclick="exportCSV()">⬇️ CSV</button>
+        <button class="export-btn" onclick="exportPDF()">📄 PDF</button>
         <div style="display:flex;gap:.4rem;flex-wrap:wrap" id="status-filters"></div>
       </div>
       <div id="orders-table-wrap"></div>
@@ -535,7 +554,7 @@ import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/
 import { getFirestore, collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, arrayUnion, addDoc, getDoc }
                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 let CURRENT_USER = null;
 let DB_REF = null, PRES_SID = null;
@@ -711,6 +730,45 @@ function doLogout() {
     location.reload();
   }
 }
+
+// ── Passwort ändern ──
+window.openPwModal = () => {
+  const m = document.getElementById("pw-modal");
+  m.style.display = "flex";
+  document.getElementById("pw-new").value = "";
+  document.getElementById("pw-confirm").value = "";
+  document.getElementById("pw-err").textContent = "";
+  setTimeout(() => document.getElementById("pw-new").focus(), 100);
+};
+window.closePwModal = () => { document.getElementById("pw-modal").style.display = "none"; };
+window.submitPwChange = async () => {
+  const pw = document.getElementById("pw-new").value;
+  const confirm = document.getElementById("pw-confirm").value;
+  const errEl = document.getElementById("pw-err");
+  const btn = document.getElementById("pw-submit-btn");
+  if (pw.length < 8) { errEl.textContent = "Mindestens 8 Zeichen!"; return; }
+  if (pw !== confirm) { errEl.textContent = "Passwörter stimmen nicht überein!"; return; }
+  errEl.textContent = "";
+  btn.disabled = true; btn.textContent = "Speichert…";
+  try {
+    const user = EARLY_AUTH.currentUser;
+    if (!user) throw new Error("Kein eingeloggter User gefunden.");
+    await updatePassword(user, pw);
+    window.closePwModal();
+    showToast("Passwort erfolgreich geändert! 🔑");
+  } catch(e) {
+    // Firebase verlangt manchmal Re-Auth wenn Login zu lange her
+    if (e.code === "auth/requires-recent-login") {
+      errEl.textContent = "Session zu alt — bitte kurz ausloggen und neu einloggen, dann Passwort ändern.";
+    } else {
+      errEl.textContent = "Fehler: " + e.message;
+    }
+  }
+  btn.disabled = false; btn.textContent = "Speichern";
+};
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("pw-modal")?.style.display === "flex") window.closePwModal();
+});
 
 function requestNotifPermission() {
   if ("Notification" in window && Notification.permission === "default") {
@@ -919,11 +977,77 @@ let searchQ   = "";
 let statusFilt = "all";
 let filterToday = false;
 let expandedId = null;
+let sortLieferant = false;
 let knownIds   = new Set();
 let isFirstLoad = true;
 let lastUpdateTs = Date.now();
 let ordPage = 1;
 const ORD_PAGE_SIZE = 20;
+
+// ── Favicon-Badge für überfällige Orders ──
+function updateFaviconBadge() {
+  const overdue = allOrders.filter(o =>
+    o.status === "Verarbeitung" &&
+    o.date && (Date.now() - new Date(o.date).getTime()) > 20 * 60 * 1000
+  ).length;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32; canvas.height = 32;
+    const c = canvas.getContext("2d");
+    c.fillStyle = "#6366f1";
+    c.beginPath(); c.arc(16, 16, 15, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#fff"; c.font = "bold 16px sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("⚡", 16, 16);
+    if (overdue > 0) {
+      c.fillStyle = "#ef4444";
+      c.beginPath(); c.arc(24, 8, 8, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#fff"; c.font = "bold 10px sans-serif";
+      c.fillText(Math.min(overdue, 9), 24, 8);
+    }
+    let link = document.querySelector("link[rel*='icon']");
+    if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
+    link.href = canvas.toDataURL("image/png");
+    document.title = overdue > 0 ? `(${overdue}) Admin — Illegalo` : "Admin — Illegalo";
+  } catch(e) {}
+}
+
+window.toggleSortLieferant = () => {
+  sortLieferant = !sortLieferant;
+  const btn = document.getElementById("sort-lief-btn");
+  if (btn) btn.classList.toggle("on", sortLieferant);
+  ordPage = 1; renderOrdersTable();
+};
+
+window.exportPDF = () => {
+  if (!allOrders.length) return showToast("Keine Orders zum Exportieren!", true);
+  const today = new Date();
+  const list = filterToday ? allOrders.filter(o => isToday(o.date)) : allOrders;
+  const dateStr = today.toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric" });
+  const rows = list.map(o => `
+    <tr>
+      <td>${fmtOrderNum(o)}</td><td>${fmtDt(o.date)}</td><td>${o.customer?.name||"?"}</td>
+      <td>${(o.items||[]).map(it=>`${it.icon||""} ${it.name} ×${it.qty}`).join("<br>")}</td>
+      <td>€${(o.total||0).toFixed(2)}</td>
+      <td><span style="padding:2px 8px;border-radius:99px;background:${o.status==='Zugestellt'?'#d1fae5':o.status==='Storniert'?'#fee2e2':o.status==='Versandt'?'#dbeafe':'#fef9c3'};color:#111;font-size:11px;">${o.status}</span></td>
+    </tr>`).join("");
+  const total = list.filter(o=>o.status!=="Storniert").reduce((s,o)=>s+(o.total||0),0).toFixed(2);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Illegalo ${dateStr}</title>
+    <style>body{font-family:Inter,sans-serif;padding:28px;color:#0f172a;font-size:13px;}
+    h1{font-size:20px;margin-bottom:4px;}sub{color:#64748b;font-size:12px;}
+    table{width:100%;border-collapse:collapse;margin-top:16px;}
+    th{background:#0a0e1a;color:#fff;padding:7px 10px;text-align:left;font-size:11px;}
+    td{padding:7px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+    tr:nth-child(even) td{background:#f8fafc;}tfoot td{background:#f1f5f9;font-weight:700;}</style></head>
+    <body><h1>⚡ Illegalo — ${filterToday?"Heute":"Alle Orders"} ${dateStr}</h1>
+    <sub>${list.length} Orders · Gesamt: €${total}</sub>
+    <table><thead><tr><th>Nr</th><th>Datum</th><th>Kunde</th><th>Artikel</th><th>Betrag</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="4">Gesamt (nicht storniert)</td><td>€${total}</td><td></td></tr></tfoot>
+    </table><script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  const win = window.open("","_blank");
+  if (win) { win.document.write(html); win.document.close(); }
+  else showToast("Pop-ups erlauben für den PDF-Export 📄", true);
+};
 
 // real-time listener
 const q = query(col, orderBy("created","desc"));
@@ -1105,6 +1229,14 @@ function renderOrdersTable() {
     const q=searchQ.toLowerCase();
     list=list.filter(o=>o.id.toLowerCase().includes(q)||o.customer?.name?.toLowerCase().includes(q)||(o.customer?.email||"").toLowerCase().includes(q));
   }
+  if (sortLieferant) {
+    list = [...list].sort((a, b) => {
+      const la = (a.lieferant||"zzz").toLowerCase();
+      const lb = (b.lieferant||"zzz").toLowerCase();
+      return la < lb ? -1 : la > lb ? 1 : 0;
+    });
+  }
+  updateFaviconBadge();
 
   const wrap = document.getElementById("orders-table-wrap");
   if (!list.length) { wrap.innerHTML=`<div class="empty"><div style="font-size:3.5rem">🔍</div><h2>Nix gefunden.</h2></div>`; return; }

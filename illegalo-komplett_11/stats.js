@@ -18,6 +18,7 @@ const overallListEl = document.getElementById("overall-list");
 const perGameEl = document.getElementById("per-game");
 const recentListEl = document.getElementById("recent-list");
 const leaveBtn = document.getElementById("leave-btn");
+const periodBtns = document.querySelectorAll(".period-btn");
 
 const GAME_NAMES = {
   tictactoe: "Tic-Tac-Toe", snakeio: "Snake.io", katapult: "Katapult Tower",
@@ -26,23 +27,48 @@ const GAME_NAMES = {
 
 renderShopAd("shop-ad");
 
+let allResults = [];
+let currentPeriod = "all";
+
 onAuthStateChanged(auth, (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
   loadStats();
 });
 
+periodBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    periodBtns.forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    currentPeriod = btn.dataset.period;
+    renderStats(filterByPeriod(allResults, currentPeriod));
+  });
+});
+
+function filterByPeriod(results, period) {
+  if (period === "all") return results;
+  const now = Date.now();
+  const cutoffMs = period === "week" ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+  return results.filter(r => {
+    const ts = r.at?.toMillis?.() || 0;
+    return ts > 0 && (now - ts) <= cutoffMs;
+  });
+}
+
 async function loadStats() {
-  let results = [];
   try {
     const snap = await getDocs(collection(db, "matchResults"));
-    results = snap.docs.map(d => d.data());
+    allResults = snap.docs.map(d => d.data());
   } catch (e) {
     overallListEl.innerHTML = `<li class="empty">Konnte Bilanz nicht laden.</li>`;
     return;
   }
+  renderStats(filterByPeriod(allResults, currentPeriod));
+}
 
+function renderStats(results) {
   if (results.length === 0) {
-    overallListEl.innerHTML = `<li class="empty">Noch keine Matches gespielt — los geht's!</li>`;
+    overallListEl.innerHTML = `<li class="empty">${allResults.length === 0 ? "Noch keine Matches gespielt — los geht's!" : "Kein Match in diesem Zeitraum."}</li>`;
+    perGameEl.innerHTML = `<div class="empty">Keine Daten für diesen Zeitraum.</div>`;
     recentListEl.innerHTML = `<li class="empty">—</li>`;
     return;
   }

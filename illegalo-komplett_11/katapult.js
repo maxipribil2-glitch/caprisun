@@ -19,6 +19,7 @@ const db = getFirestore(app);
 
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get("room");
+const isSpectator = params.get("spectate") === "1";
 
 const canvas = document.getElementById("kat-canvas");
 const ctx = canvas.getContext("2d");
@@ -120,6 +121,7 @@ function getPos(e) {
 }
 
 canvas.addEventListener("pointerdown", e => {
+  if (isSpectator) return;
   if (!isMyTurn() || shotActive) return;
   aiming = true;
   aimPos = getPos(e);

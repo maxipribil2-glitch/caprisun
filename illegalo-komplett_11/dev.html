@@ -197,7 +197,7 @@ button,input{font-family:'Inter',sans-serif;}
 </head>
 <body>
 <div class="wm">MAP</div>
-<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.11</div>
+<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.12</div>
 <div id="loading" style="display:none"><div class="spinner"></div><p>Verbinde mit Firebase…</p></div>
 
 <!-- CUSTOM CONFIRM MODAL -->
@@ -382,6 +382,12 @@ button,input{font-family:'Inter',sans-serif;}
           </div>
         </div>
         <button class="toggle-switch" id="schedule-toggle" onclick="toggleSchedule()"></button>
+      </div>
+
+      <div id="schedule-preview-card" style="display:none;background:var(--s2);border:1.5px solid rgba(245,158,11,.3);border-radius:14px;padding:1rem 1.2rem;margin-top:.6rem;">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--am);margin-bottom:.7rem;">📅 Zeitplan-Vorschau — nächste 7 Tage</div>
+        <div id="schedule-preview-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;"></div>
+        <div style="font-size:.68rem;color:var(--mu2);margin-top:.6rem;" id="schedule-next-open"></div>
       </div>
 
       <div class="ctrl-card">
@@ -673,11 +679,51 @@ function updateScheduleStatusText() {
   if (!scheduleEnabled) {
     el.textContent = "⚪ Deaktiviert — Webseiten laufen unabhängig von Uhrzeit/Tag";
     el.className = "ctrl-status";
+    document.getElementById("schedule-preview-card").style.display = "none";
     return;
   }
   const withinNow = window.isWithinSchedule ? window.isWithinSchedule() : false;
   el.textContent = withinNow ? "🟢 Aktiv — gerade innerhalb der Öffnungszeit" : "🔴 Aktiv — gerade AUSSERHALB der Öffnungszeit (Seiten zeigen Maintenance)";
   el.className = "ctrl-status " + (withinNow ? "on" : "off");
+  renderSchedulePreview();
+}
+
+function renderSchedulePreview() {
+  const card = document.getElementById("schedule-preview-card");
+  const grid = document.getElementById("schedule-preview-grid");
+  const nextEl = document.getElementById("schedule-next-open");
+  if (!card || !grid) return;
+  card.style.display = "block";
+  const DAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+  const OPEN_DAYS = [2, 4]; // Di=2, Do=4
+  const OPEN_H_START = 7, OPEN_H_END = 16;
+  const now = new Date();
+  let html = "";
+  let nextOpen = null;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const wd = d.getDay();
+    const isOpenDay = OPEN_DAYS.includes(wd);
+    const isToday = i === 0;
+    const label = DAYS[wd] + (isToday ? "<br><span style='font-size:.55rem'>heute</span>" : "<br><span style='font-size:.55rem'>" + d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}) + "</span>");
+    const bg = isOpenDay ? "rgba(16,185,129,.18)" : "rgba(239,68,68,.1)";
+    const bc = isOpenDay ? "rgba(16,185,129,.4)" : "rgba(239,68,68,.2)";
+    const icon = isOpenDay ? "🟢" : "🔴";
+    html += `<div style="background:${bg};border:1.5px solid ${bc};border-radius:8px;padding:6px 2px;font-size:.65rem;color:var(--tx);${isToday?"outline:2px solid var(--in)":""}">
+      ${icon}<br>${label}</div>`;
+    if (!nextOpen && isOpenDay) {
+      if (isToday) {
+        const h = now.getHours();
+        if (h >= OPEN_H_END) nextOpen = null; // already past today
+        else { nextOpen = `Heute Di/Do: ${OPEN_H_START}–${OPEN_H_END} Uhr offen`; }
+      } else {
+        nextOpen = `Nächste Öffnung: ${DAYS[wd]}, ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})} · ${OPEN_H_START}–${OPEN_H_END} Uhr`;
+      }
+    }
+  }
+  grid.innerHTML = html;
+  if (nextEl) nextEl.textContent = nextOpen || `Nächste Öffnung: Di oder Do (${OPEN_H_START}–${OPEN_H_END} Uhr)`;
 }
 setInterval(updateScheduleStatusText, 30000);
 
@@ -896,23 +942,46 @@ function renderOverview() {
   renderList("users-lieferant", lieferantList);
 }
 
+// ── JSON-Diff: vorherigen Snapshot merken, Änderungen highlighten ──
+const _prevSnap = {};
+function renderJsonWithDiff(elId, data) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const newStr = JSON.stringify(data, jsonReplacer, 2);
+  const oldStr = _prevSnap[elId] || "";
+  _prevSnap[elId] = newStr;
+  if (!oldStr || oldStr === newStr) { el.textContent = newStr; return; }
+  // line-by-line diff — mark added/changed lines
+  const oldLines = oldStr.split("\n");
+  const newLines = newStr.split("\n");
+  const html = newLines.map((line, i) => {
+    const escaped = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const isNew = i >= oldLines.length || oldLines[i] !== line;
+    return isNew ? `<span style="background:rgba(99,102,241,.22);display:block">${escaped}</span>` : escaped;
+  }).join("\n");
+  el.innerHTML = html;
+  // flash the header
+  const hdr = el.closest(".storage-card")?.querySelector(".storage-hdr");
+  if (hdr) { hdr.style.background="rgba(99,102,241,.15)"; setTimeout(()=>hdr.style.background="",2000); }
+}
+
 function renderStorage() {
   document.getElementById("orders-count").textContent = allOrders.length+" docs";
-  document.getElementById("orders-json").textContent = JSON.stringify(allOrders, jsonReplacer, 2);
+  renderJsonWithDiff("orders-json", allOrders);
   document.getElementById("presence-count").textContent = allPresence.length+" docs";
-  document.getElementById("presence-json").textContent = JSON.stringify(allPresence, jsonReplacer, 2);
+  renderJsonWithDiff("presence-json", allPresence);
   document.getElementById("audit-count").textContent = allAudit.length+" docs";
-  document.getElementById("audit-json").textContent = JSON.stringify(allAudit, jsonReplacer, 2);
+  renderJsonWithDiff("audit-json", allAudit);
   document.getElementById("notes-count").textContent = allNotes.length+" docs";
-  document.getElementById("notes-json").textContent = JSON.stringify(allNotes, jsonReplacer, 2);
+  renderJsonWithDiff("notes-json", allNotes);
   document.getElementById("error-count").textContent = allErrors.length+" docs";
-  document.getElementById("error-json").textContent = JSON.stringify(allErrors, jsonReplacer, 2);
+  renderJsonWithDiff("error-json", allErrors);
   const blockedArr = USER_LIST.map(u=>({user:u, blocked: userBlockStates[u]===true}));
   document.getElementById("blocked-count").textContent = blockedArr.filter(b=>b.blocked).length+"/"+blockedArr.length+" gesperrt";
-  document.getElementById("blocked-json").textContent = JSON.stringify(blockedArr, jsonReplacer, 2);
+  renderJsonWithDiff("blocked-json", blockedArr);
   const availArr = LIEFERANTEN_LIST.map(l=>({lieferant:l, available: lieferantAvailStates[l]!==false}));
   document.getElementById("avail-count").textContent = availArr.filter(a=>a.available).length+"/"+availArr.length+" verfügbar";
-  document.getElementById("avail-json").textContent = JSON.stringify(availArr, jsonReplacer, 2);
+  renderJsonWithDiff("avail-json", availArr);
 }
 
 window.currentCodeFile = null;

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Illegalo – Gruppenbestellung</title>
+<link rel="manifest" href="manifest-shop.json"/>
+<link rel="apple-touch-icon" href="icon-shop.png"/>
+<meta name="theme-color" content="#6366f1"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Caveat:wght@700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#0a0e1a;--sf:#111827;--s2:#1e2740;--bd:#2a3555;--in:#6366f1;--am:#f59e0b;--gr:#10b981;--re:#ef4444;--bl:#3b82f6;--tx:#f1f5f9;--mu:#94a3b8;}
+body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;min-height:100vh;}
+button,input,select{font-family:'Inter',sans-serif;}
+input,select{width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;padding:10px 14px;color:var(--tx);font-size:.9rem;outline:none;}
+input:focus,select:focus{border-color:var(--in);}
+input::placeholder{color:var(--mu);}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:99px;}
+.wm{position:fixed;bottom:14px;left:18px;font-family:'Caveat',cursive;font-size:22px;color:var(--in);opacity:.5;z-index:9999;pointer-events:none;}
+.wrap{max-width:640px;margin:0 auto;padding:2rem 1.2rem 5rem;}
+.logo{font-weight:800;font-size:1.4rem;background:linear-gradient(135deg,var(--in),var(--am));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.2rem;}
+a.back{color:var(--mu);font-size:.82rem;text-decoration:none;display:inline-block;margin-bottom:1rem;}
+a.back:hover{color:var(--tx);}
+.pgtitle{font-size:1.7rem;font-weight:800;margin-bottom:.3rem;}
+.pgtitle em{color:var(--in);font-style:normal;}
+.pgsub{color:var(--mu);font-size:.86rem;margin-bottom:1.6rem;}
+.crd{background:var(--sf);border:1.5px solid var(--bd);border-radius:16px;padding:1.3rem;margin-bottom:1rem;}
+.crd-t{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--mu);margin-bottom:1rem;}
+.fg{margin-bottom:.85rem;}
+.fg label{display:block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:.3rem;}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+.btn{background:var(--in);border:none;border-radius:10px;color:#fff;font-size:.88rem;font-weight:700;padding:11px 16px;cursor:pointer;width:100%;transition:opacity .15s;}
+.btn:hover{opacity:.88;}
+.btn.ghost{background:var(--s2);border:1.5px solid var(--bd);color:var(--tx);}
+.code-box{display:flex;align-items:center;gap:.6rem;background:var(--s2);border:1.5px dashed var(--in);border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1rem;}
+.code-box .code{font-size:1.6rem;font-weight:800;letter-spacing:.15em;color:var(--in);font-family:monospace;flex:1;}
+.code-box button{flex-shrink:0;width:auto;padding:8px 12px;font-size:.78rem;}
+.gitem{display:flex;align-items:center;gap:.7rem;padding:.7rem 0;border-bottom:1px solid var(--bd);}
+.gitem:last-child{border-bottom:none;}
+.gitem-main{flex:1;min-width:0;}
+.gitem-name{font-weight:700;font-size:.9rem;}
+.gitem-meta{color:var(--mu);font-size:.74rem;margin-top:2px;}
+.gitem-price{font-weight:800;color:var(--am);white-space:nowrap;}
+.gitem-del{background:none;border:none;color:var(--re);font-size:1.1rem;cursor:pointer;padding:0 0 0 .4rem;width:auto;}
+.tot{display:flex;justify-content:space-between;align-items:center;padding-top:.9rem;margin-top:.4rem;border-top:1.5px solid var(--bd);font-size:.95rem;font-weight:700;}
+.tot strong{color:var(--am);font-size:1.15rem;}
+.empty{color:var(--mu);font-size:.85rem;padding:1rem 0;text-align:center;}
+.hint{color:var(--mu);font-size:.78rem;margin-top:.6rem;}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--sf);border:1.5px solid var(--bd);border-radius:10px;padding:.7rem 1.1rem;font-size:.85rem;z-index:2000;display:none;}
+.toast.show{display:block;}
+</style>
+</head>
+<body>
+<div class="wm">MAP</div>
+<div class="wrap">
+  <a href="shop.html" class="back">← Zurück zum Shop</a>
+  <div class="logo">Illegalo ⚡</div>
+  <div class="pgtitle">Gruppen<em>bestellung</em> 👯</div>
+  <div class="pgsub">Mehrere Leute sammeln Items zu einer gemeinsamen Lieferung, bevor's einer rausschickt.</div>
+
+  <div id="start-screen">
+    <div class="crd">
+      <div class="crd-t">Neue Gruppenbestellung starten</div>
+      <button class="btn" onclick="createGroup()">+ Gruppenbestellung erstellen</button>
+    </div>
+    <div class="crd">
+      <div class="crd-t">Code eingeben (von nem Kumpel bekommen)</div>
+      <div class="fg"><input id="join-code-input" placeholder="z.B. AB12CD" maxlength="6" style="text-transform:uppercase;"/></div>
+      <button class="btn ghost" onclick="joinGroup()">Beitreten</button>
+    </div>
+  </div>
+
+  <div id="group-screen" style="display:none;">
+    <div class="code-box">
+      <div class="code" id="code-display">——————</div>
+      <button class="btn ghost" onclick="copyGroupLink()">🔗 Link kopieren</button>
+    </div>
+    <div class="hint" style="margin-bottom:1.2rem;">Diesen Code oder Link an deine Leute schicken, damit sie auch Items hinzufügen können.</div>
+
+    <div class="crd">
+      <div class="crd-t">➕ Item hinzufügen</div>
+      <div class="r2">
+        <div class="fg"><label>Dein Name</label><input id="g-myname" placeholder="Max"/></div>
+        <div class="fg"><label>Artikel</label><input id="g-item-name" placeholder="z.B. Cola 1L"/></div>
+      </div>
+      <div class="r2">
+        <div class="fg"><label>Menge</label><input id="g-item-qty" type="number" min="1" value="1"/></div>
+        <div class="fg"><label>Preis (€)</label><input id="g-item-price" type="number" step="0.01" min="0" placeholder="2,50"/></div>
+      </div>
+      <button class="btn" onclick="addGroupItem()">Hinzufügen</button>
+    </div>
+
+    <div class="crd">
+      <div class="crd-t">📦 Gesammelte Items</div>
+      <div id="group-items-list"><div class="empty">Noch nix da — leg los!</div></div>
+      <div class="tot"><span>Gesamtbetrag</span><strong id="group-total">€0,00</strong></div>
+    </div>
+
+    <div class="crd">
+      <div class="crd-t">🚀 Fertig sammeln?</div>
+      <div class="fg"><label>Name für die Lieferung *</label><input id="g-final-name" placeholder="Max Mustermann"/></div>
+      <div class="fg"><label>Lieferadresse *</label><input id="g-final-address" placeholder="Musterstraße 1, 80333 München"/></div>
+      <button class="btn" onclick="submitGroupOrder()">📤 Als eine Bestellung absenden</button>
+      <div class="hint">Schickt alle gesammelten Items als EINE Bestellung an den Shop. Die Gruppenbestellung wird danach gelöscht.</div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="group.js"></script>
+</body>
+</html>

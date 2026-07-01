@@ -134,6 +134,8 @@ button,input{font-family:'Inter',sans-serif;}
   transition:all .2s;color:var(--mu2);}
 .avail-toggle.available{border-color:var(--gr);color:var(--gr);background:rgba(16,185,129,.1);}
 .avail-toggle.unavailable{border-color:var(--re);color:var(--re);background:rgba(239,68,68,.1);}
+.avail-plan-btn{background:var(--bg);border:1.5px solid var(--am);color:var(--am);border-radius:8px;padding:.4rem .8rem;font-size:.78rem;font-weight:700;cursor:pointer;transition:.15s ease;}
+.avail-plan-btn:hover{background:rgba(245,158,11,.15);}
 .avail-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
 .mute-btn{background:var(--s2);border:1.5px solid var(--bd);border-radius:8px;color:var(--mu2);
   width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;
@@ -159,7 +161,7 @@ button,input{font-family:'Inter',sans-serif;}
   <div class="maint-sub" id="maint-sub">Wurde kurz ausgeschaltet. Spiel solang ne Runde Dino! 🦖</div>
   <canvas id="dino-canvas" width="320" height="160"></canvas>
 </div>
-<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.2</div>
+<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.3</div>
 <div id="loading" style="display:none"><div class="spinner"></div><p>Verbinde mit Firebase…</p></div>
 
 <div id="login-screen">
@@ -189,12 +191,25 @@ button,input{font-family:'Inter',sans-serif;}
     <div class="live-dot" id="live-dot"></div>
     <span class="live-lbl" id="live-lbl">Verbinde…</span>
     <button class="logout-btn" onclick="doLogout()">Logout</button>
+    <button onclick="openPwModal()" title="Passwort ändern" style="background:var(--s2);border:1.5px solid var(--bd);border-radius:8px;color:var(--mu);font-size:.8rem;padding:5px 10px;cursor:pointer;">🔑</button>
   </div>
 </header>
 
 <div class="page">
   <div class="pgtitle">Meine <em>Lieferungen</em> 🛵</div>
   <div class="pgsub">Nur dir zugewiesene Bestellungen — Status ändern, kein Löschen.</div>
+
+  <div id="avail-plan-card" style="display:none;background:var(--s2);border:1.5px solid rgba(245,158,11,.35);border-radius:14px;padding:.9rem 1.1rem;margin-bottom:1rem;">
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--am);margin-bottom:.5rem;">⏰ Wann bist du wieder verfügbar?</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button class="avail-plan-btn" onclick="scheduleAvailIn(15)">+15 Min</button>
+      <button class="avail-plan-btn" onclick="scheduleAvailIn(30)">+30 Min</button>
+      <button class="avail-plan-btn" onclick="scheduleAvailIn(60)">+1 Std</button>
+      <button class="avail-plan-btn" onclick="scheduleAvailIn(120)">+2 Std</button>
+      <button class="avail-plan-btn" onclick="scheduleAvailIn(0)">Jetzt direkt</button>
+    </div>
+    <div id="avail-plan-status" style="font-size:.75rem;color:var(--mu);margin-top:.6rem;"></div>
+  </div>
 
   <div class="stat-row">
     <div class="stat"><div class="stl">Mir zugewiesen</div><div class="stv gr" id="s-open">0</div></div>
@@ -214,7 +229,7 @@ button,input{font-family:'Inter',sans-serif;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, query, orderBy, doc, updateDoc, arrayUnion, addDoc, setDoc, serverTimestamp, getDoc }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const ALLOWED_USERS = ["philippstangl", "giannihay"];
 const MAX_ATTEMPTS = 5, LOCKOUT_MS = 30*1000, SESSION_MS = 60*60*1000;
@@ -331,6 +346,56 @@ function startSession() {
 }
 window.doLogout = function() { clearInterval(sessionTimer); signOut(EARLY_AUTH).catch(()=>{}); location.reload(); };
 
+// ── Passwort ändern ──
+window.openPwModal = () => {
+  let m = document.getElementById("pw-modal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "pw-modal";
+    m.style.cssText = "display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3001;align-items:center;justify-content:center;padding:20px;";
+    m.innerHTML = `<div style="background:var(--sf);border:1.5px solid var(--bd);border-radius:16px;padding:24px;width:100%;max-width:360px;">
+      <h3 style="margin:0 0 16px;font-size:1rem">🔑 Passwort ändern</h3>
+      <label style="font-size:.75rem;color:var(--mu);display:block;margin-bottom:4px">Neues Passwort</label>
+      <input type="password" id="pw-new" placeholder="mind. 8 Zeichen" style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;color:var(--tx);padding:9px 12px;font-family:Inter,sans-serif;font-size:.88rem;margin-bottom:10px;box-sizing:border-box;"/>
+      <label style="font-size:.75rem;color:var(--mu);display:block;margin-bottom:4px">Passwort wiederholen</label>
+      <input type="password" id="pw-confirm" placeholder="nochmal eingeben" style="width:100%;background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;color:var(--tx);padding:9px 12px;font-family:Inter,sans-serif;font-size:.88rem;margin-bottom:10px;box-sizing:border-box;"/>
+      <div id="pw-err" style="font-size:.78rem;color:var(--re);min-height:16px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:.6rem;justify-content:flex-end;">
+        <button onclick="closePwModal()" style="background:var(--s2);border:1.5px solid var(--bd);border-radius:8px;color:var(--mu);padding:8px 16px;cursor:pointer;font-size:.82rem;">Abbrechen</button>
+        <button onclick="submitPwChange()" style="background:var(--in);border:none;border-radius:8px;color:#fff;padding:8px 16px;cursor:pointer;font-weight:700;font-size:.82rem;" id="pw-submit-btn">Speichern</button>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  m.style.display = "flex";
+  document.getElementById("pw-new").value = "";
+  document.getElementById("pw-confirm").value = "";
+  document.getElementById("pw-err").textContent = "";
+  setTimeout(()=>document.getElementById("pw-new").focus(), 100);
+};
+window.closePwModal = () => { const m = document.getElementById("pw-modal"); if (m) m.style.display = "none"; };
+window.submitPwChange = async () => {
+  const pw = document.getElementById("pw-new").value;
+  const confirm = document.getElementById("pw-confirm").value;
+  const errEl = document.getElementById("pw-err");
+  const btn = document.getElementById("pw-submit-btn");
+  if (pw.length < 8) { errEl.textContent = "Mindestens 8 Zeichen!"; return; }
+  if (pw !== confirm) { errEl.textContent = "Passwörter stimmen nicht überein!"; return; }
+  errEl.textContent = ""; btn.disabled = true; btn.textContent = "Speichert…";
+  try {
+    const user = EARLY_AUTH.currentUser;
+    if (!user) throw new Error("Kein eingeloggter User gefunden.");
+    await updatePassword(user, pw);
+    window.closePwModal();
+    showToast("Passwort erfolgreich geändert! 🔑");
+  } catch(e) {
+    errEl.textContent = e.code === "auth/requires-recent-login"
+      ? "Session zu alt — kurz ausloggen und neu einloggen."
+      : "Fehler: " + e.message;
+  }
+  btn.disabled = false; btn.textContent = "Speichern";
+};
+
 function initFirebase() {
 const app = FIREBASE_APP;
 const db  = EARLY_DB;
@@ -434,11 +499,38 @@ onSnapshot(availDocRef, snap => {
   if (btn) btn.className = "avail-toggle " + (isAvailable ? "available" : "unavailable");
   if (label) label.textContent = isAvailable ? "Verfügbar" : "Nicht verfügbar";
 }, err => {});
+
+// ── Verfügbarkeits-Vorplanung ──
+let _availTimer = null;
 window.toggleAvailability = async () => {
+  if (_availTimer) { clearTimeout(_availTimer); _availTimer = null; }
   try {
-    await setDoc(availDocRef, { available: !isAvailable, updatedBy: CURRENT_USER, updatedAt: new Date().toISOString() }, { merge: true });
-    showToast(!isAvailable ? "Du bist jetzt verfügbar! 🟢" : "Du bist jetzt nicht verfügbar 🔴");
+    const nowAvail = !isAvailable;
+    await setDoc(availDocRef, { available: nowAvail, updatedBy: CURRENT_USER, updatedAt: new Date().toISOString() }, { merge: true });
+    showToast(nowAvail ? "Du bist jetzt verfügbar! 🟢" : "Du bist jetzt nicht verfügbar 🔴");
+    document.getElementById("avail-plan-card").style.display = nowAvail ? "none" : "block";
+    document.getElementById("avail-plan-status").textContent = "";
   } catch(e) { showToast("Fehler: "+e.message, true); }
+};
+window.scheduleAvailIn = async (minutes) => {
+  if (_availTimer) { clearTimeout(_availTimer); _availTimer = null; }
+  if (minutes === 0) {
+    await setDoc(availDocRef, { available: true, updatedBy: CURRENT_USER, updatedAt: new Date().toISOString() }, { merge: true });
+    showToast("Du bist jetzt verfügbar! 🟢");
+    document.getElementById("avail-plan-card").style.display = "none";
+    return;
+  }
+  const eta = new Date(Date.now() + minutes * 60000);
+  document.getElementById("avail-plan-status").textContent = `⏳ Auto-Reset auf Verfügbar um ${eta.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} Uhr`;
+  showToast(`Automatisch verfügbar in ${minutes} Min ⏰`);
+  _availTimer = setTimeout(async () => {
+    try {
+      await setDoc(availDocRef, { available: true, updatedBy: CURRENT_USER, updatedAt: new Date().toISOString() }, { merge: true });
+      showToast("Auto-Reset: Du bist jetzt wieder verfügbar! 🟢");
+      document.getElementById("avail-plan-card").style.display = "none";
+      document.getElementById("avail-plan-status").textContent = "";
+    } catch(e) {}
+  }, minutes * 60000);
 };
 
 function playAssignPing() {

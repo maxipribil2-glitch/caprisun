@@ -14,6 +14,15 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{--bg:#0a0e1a;--sf:#111827;--s2:#1e2740;--bd:#2a3555;--in:#6366f1;--am:#f59e0b;--gr:#10b981;--re:#ef4444;--bl:#3b82f6;--tx:#f1f5f9;--mu:#94a3b8;}
 body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;min-height:100vh;}
+/* ── Light Mode ── */
+body.light{--bg:#f8fafc;--sf:#ffffff;--s2:#f1f5f9;--bd:#e2e8f0;--tx:#0f172a;--mu:#64748b;}
+body.light .hdr{background:rgba(248,250,252,.94);}
+body.light .conn-dot{background:var(--re);}
+body.light .conn-dot.ok{background:var(--gr);}
+body.light .toast{box-shadow:0 8px 24px rgba(16,185,129,.2);}
+/* ── Offline-Banner ── */
+#offline-banner{display:none;position:fixed;top:60px;left:0;right:0;z-index:490;background:rgba(245,158,11,.95);color:#1a0a00;font-size:.82rem;font-weight:700;padding:8px 1.5rem;text-align:center;backdrop-filter:blur(8px);}
+#offline-banner.show{display:block;}
 button,input,select,textarea{font-family:'Inter',sans-serif;}
 input,select,textarea{width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;padding:10px 14px;color:var(--tx);font-size:.9rem;outline:none;transition:border-color .2s;}
 input:focus,select:focus,textarea:focus{border-color:var(--in);}
@@ -60,6 +69,10 @@ textarea{resize:vertical;}
 .em-o{background:var(--s2);border:1.5px solid var(--bd);border-radius:8px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 .em-o:hover,.em-o.sel{border-color:var(--in);background:rgba(99,102,241,.15);}
 .add-art{background:rgba(99,102,241,.09);border:1.5px dashed rgba(99,102,241,.4);border-radius:10px;color:var(--in);font-size:.84rem;font-weight:700;padding:9px;width:100%;cursor:pointer;transition:all .2s;margin-top:.2rem;}
+.qp-label{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--mu);margin-bottom:.5rem;}
+.qp-chips{display:flex;flex-wrap:wrap;gap:.5rem;}
+.qp-chip{background:var(--s2);border:1px solid var(--bd);border-radius:999px;padding:.4rem .75rem;font-size:.78rem;color:var(--tx);cursor:pointer;display:flex;align-items:center;gap:.3rem;}
+.qp-chip:hover{border-color:var(--in);background:rgba(99,102,241,.1);}
 .add-art:hover{background:rgba(99,102,241,.18);border-style:solid;}
 .divr{height:1px;background:var(--bd);margin:1rem 0;}
 .tot{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.1rem;background:var(--s2);border-radius:10px;margin-top:.5rem;}
@@ -80,6 +93,8 @@ textarea{resize:vertical;}
 .oid{font-size:.72rem;font-weight:800;color:var(--in);}
 .odt{font-size:.68rem;color:var(--mu);}
 .pill{font-size:.67rem;font-weight:800;padding:3px 10px;border-radius:999px;text-transform:uppercase;}
+@keyframes pill-flash { 0%,100%{opacity:1} 30%{opacity:0.2} 60%{opacity:1} 80%{opacity:0.4} }
+.pill-flash{animation:pill-flash 1.2s ease;}
 .pV{background:rgba(245,158,11,.15);color:var(--am);border:1px solid rgba(245,158,11,.3);}
 .pS{background:rgba(59,130,246,.13);color:var(--bl);border:1px solid rgba(59,130,246,.28);}
 .pZ{background:rgba(16,185,129,.13);color:var(--gr);border:1px solid rgba(16,185,129,.28);}
@@ -139,9 +154,11 @@ textarea{resize:vertical;}
     <button class="nb on" id="btn-post" onclick="showPage('post')">✍️ Bestellen</button>
     <button class="nb" id="btn-orders" onclick="showPage('orders')">📦 Orders <span id="order-count"></span></button>
     <button class="nb" id="btn-track" onclick="showPage('track')">🔍 Verfolgen</button>
+    <button class="nb" id="theme-toggle" onclick="toggleTheme()" title="Dark/Light wechseln" style="padding:6px 10px;font-size:1rem;">☀️</button>
   </div>
   <div class="conn"><div class="conn-dot" id="conn-dot"></div><span id="conn-label" style="color:var(--mu)">…</span></div>
 </header>
+<div id="offline-banner">📡 Offline — deine Bestellung wird gespeichert und sobald die Verbindung zurück ist automatisch gepostet.</div>
 
 <div class="page on" id="page-post">
   <div class="pgtitle">Bestellung <em>aufgeben</em> ✍️</div>
@@ -157,6 +174,7 @@ textarea{resize:vertical;}
   </div>
   <div class="crd">
     <div class="crd-t">🛍️ Artikel</div>
+    <div id="quick-picks" style="display:none;margin-bottom:.9rem;"></div>
     <div id="items-container"></div>
     <button class="add-art" onclick="addItem()">+ Weiteren Artikel hinzufügen</button>
     <div class="tot"><span>Gesamtbetrag</span><strong id="total-display">€0,00</strong></div>
@@ -222,6 +240,43 @@ const firebaseConfig = {
   appId:             "1:73845830641:web:4e9e8967ac4a18b6da4a50"
 };
 
+
+// ── Dark/Light-Mode ──
+function toggleTheme() {
+  const isLight = document.body.classList.toggle("light");
+  localStorage.setItem("illegalo_theme", isLight ? "light" : "dark");
+  document.getElementById("theme-toggle").textContent = isLight ? "🌙" : "☀️";
+}
+(function applyTheme() {
+  const saved = localStorage.getItem("illegalo_theme");
+  if (saved === "light") { document.body.classList.add("light"); document.getElementById("theme-toggle").textContent = "🌙"; }
+})();
+
+// ── Offline-Fallback: Bestellung lokal puffern ──
+const OFFLINE_KEY = "illegalo_offline_queue";
+function getOfflineQueue() { try { return JSON.parse(localStorage.getItem(OFFLINE_KEY)||"[]"); } catch(e) { return []; } }
+function saveOfflineQueue(q) { localStorage.setItem(OFFLINE_KEY, JSON.stringify(q)); }
+let isOnline = navigator.onLine;
+function updateOfflineBanner() {
+  document.getElementById("offline-banner").classList.toggle("show", !isOnline);
+  setConn(isOnline);
+}
+window.addEventListener("online",  () => { isOnline = true;  updateOfflineBanner(); flushOfflineQueue(); });
+window.addEventListener("offline", () => { isOnline = false; updateOfflineBanner(); });
+updateOfflineBanner();
+
+async function flushOfflineQueue() {
+  const queue = getOfflineQueue();
+  if (!queue.length) return;
+  for (const pending of queue) {
+    try {
+      const orderNumber = await getNextOrderNumber();
+      await addDoc(col, { ...pending, orderNumber, created: serverTimestamp() });
+      showToast(`Offline-Bestellung #${String(orderNumber).padStart(3,"0")} jetzt gepostet! 📡`);
+    } catch(e) { break; }
+  }
+  saveOfflineQueue([]);
+}
 
 function initFirebase() {
 const app = initializeApp(firebaseConfig);
@@ -361,6 +416,44 @@ window.updateTotal     = () => { document.getElementById("total-display").textCo
 window.removeItem      = i => { items.splice(i,1); renderItems(); };
 window.addItem         = () => { items.push({name:"",emoji:"📦",qty:1,price:""}); renderItems(); };
 
+// ── Schnellauswahl: häufigste Artikel aus eigenen letzten Bestellungen ──
+function updateQuickPicks() {
+  const box = document.getElementById("quick-picks");
+  const myName = (document.getElementById("c-name").value || "").trim().toLowerCase();
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("illegalo_last_customer")||"null"); } catch(e) {}
+  const matchName = myName || (saved && saved.name ? saved.name.trim().toLowerCase() : "");
+  if (!matchName) { box.style.display = "none"; return; }
+
+  const mine = allOrders.filter(o => (o.customer?.name||"").trim().toLowerCase() === matchName).slice(0, 20);
+  const counts = {};
+  mine.forEach(o => (o.items||[]).forEach(it => {
+    if (!it.name) return;
+    const key = it.name.trim();
+    if (!counts[key]) counts[key] = { count: 0, icon: it.icon || "📦", price: it.price };
+    counts[key].count++;
+  }));
+  const top = Object.entries(counts).sort((a,b) => b[1].count - a[1].count).slice(0, 6);
+  if (!top.length) { box.style.display = "none"; return; }
+
+  box.style.display = "block";
+  box.innerHTML = `<div class="qp-label">⚡ Schnell hinzufügen — deine Favoriten</div>
+    <div class="qp-chips">${top.map(([name, d]) =>
+      `<button type="button" class="qp-chip" data-name="${name.replace(/"/g,'&quot;')}" data-icon="${d.icon}" data-price="${d.price||''}">${d.icon} ${name}</button>`
+    ).join("")}</div>`;
+  box.querySelectorAll(".qp-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const name = chip.dataset.name, icon = chip.dataset.icon, price = chip.dataset.price;
+      const emptySlot = items.find(it => !it.name);
+      if (emptySlot) { emptySlot.name = name; emptySlot.emoji = icon; emptySlot.price = price; }
+      else { items.push({ name, emoji: icon, qty: 1, price }); }
+      renderItems();
+      showToast(`${icon} ${name} hinzugefügt`);
+    });
+  });
+}
+document.getElementById("c-name").addEventListener("input", updateQuickPicks);
+
 async function getNextOrderNumber() {
   const counterRef = doc(db, "meta", "orderCounter");
   try {
@@ -390,20 +483,35 @@ window.postOrder = async () => {
   isSubmitting = true;
   const btn = document.getElementById("post-btn");
   btn.disabled=true; btn.textContent="Wird gepostet…";
+  const orderPayload = {
+    date: new Date().toISOString(),
+    customer: { name, address },
+    items: items.map(it=>({name:it.name,icon:it.emoji,qty:parseInt(it.qty)||1,price:parseFloat(String(it.price).replace(",","."))||0})),
+    total: calcTotal(),
+    cat:  document.getElementById("d-cat").value,
+    pay:  "💵 Bar",
+    ship: "Abholung",
+    note: document.getElementById("d-note").value.trim(),
+    status: "Verarbeitung",
+  };
+
+  // ── Offline-Fallback ──
+  if (!isOnline) {
+    const queue = getOfflineQueue();
+    queue.push(orderPayload);
+    saveOfflineQueue(queue);
+    localStorage.setItem("illegalo_last_customer", JSON.stringify({name, address}));
+    localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
+    document.getElementById("d-note").value="";
+    items=[{name:"",emoji:"📦",qty:1,price:""}]; renderItems();
+    showToast("Offline gespeichert — wird automatisch gepostet wenn Verbindung zurück! 📡");
+    isSubmitting=false; btn.disabled=false; btn.textContent="📤 Bestellung jetzt posten";
+    return;
+  }
+
   try {
     const orderNumber = await getNextOrderNumber();
-    await addDoc(col, {
-      orderNumber,
-      date: new Date().toISOString(), created: serverTimestamp(),
-      customer: { name, address },
-      items: items.map(it=>({name:it.name,icon:it.emoji,qty:parseInt(it.qty)||1,price:parseFloat(String(it.price).replace(",","."))||0})),
-      total: calcTotal(),
-      cat:  document.getElementById("d-cat").value,
-      pay:  "💵 Bar",
-      ship: "Abholung",
-      note: document.getElementById("d-note").value.trim(),
-      status: "Verarbeitung",
-    });
+    await addDoc(col, { ...orderPayload, orderNumber, created: serverTimestamp() });
     localStorage.setItem("illegalo_last_customer", JSON.stringify({name, address}));
     localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
     localStorage.setItem("illegalo_last_order", JSON.stringify({
@@ -429,6 +537,7 @@ onSnapshot(q,
     allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderOrdersList();
     updateEtaBadge();
+    updateQuickPicks();
     document.getElementById("loading").style.display="none";
   },
   err => { setConn(false); document.getElementById("loading").style.display="none"; }
@@ -470,6 +579,7 @@ window.trackOrder = async () => {
   const box = document.getElementById("track-result");
   if (!num || num <= 0) { box.innerHTML = `<div class="empty"><div style="font-size:3rem">🤔</div><h2>Bitte eine gültige Bestellnummer eingeben.</h2></div>`; return; }
   box.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto"></div></div>`;
+  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().catch(()=>{});
   try {
     const snap = await getDocs(query(col, where("orderNumber","==", num)));
     if (snap.empty) { box.innerHTML = `<div class="empty"><div style="font-size:3rem">🔍</div><h2>Keine Bestellung mit #${String(num).padStart(3,"0")} gefunden.</h2></div>`; return; }
@@ -488,17 +598,67 @@ function renderTrackResult(o) {
     : STEPS.map((s,i)=>({l:s,dn:i<si,cr:i===si}));
   const shareUrl = location.origin + location.pathname + "?order=" + o.orderNumber;
   document.getElementById("track-result").innerHTML = `
-    <div class="crd">
+    <div class="crd" id="track-card-${o.id}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem;flex-wrap:wrap;gap:.5rem">
         <div><div class="oid" style="font-size:.95rem">${fmtOrderNum(o)}</div><div class="odt">${fmtDt(o.date)}</div></div>
-        <span class="pill ${pillCls(o.status)}">${o.status}</span>
+        <span class="pill ${pillCls(o.status)}" id="track-status-pill">${o.status}</span>
       </div>
-      <div class="tk-steps">${steps.map(s=>`<div class="tk-step"><div class="tk-dot${s.dn?" done":s.cr?" cur":""}"></div><div class="tk-lbl${s.dn?" done":s.cr?" cur":""}">${s.l}</div></div>`).join("")}</div>
+      <div class="tk-steps" id="track-steps">${steps.map(s=>`<div class="tk-step"><div class="tk-dot${s.dn?" done":s.cr?" cur":""}"></div><div class="tk-lbl${s.dn?" done":s.cr?" cur":""}">${s.l}</div></div>`).join("")}</div>
+      <div id="track-update-flash" style="display:none;background:linear-gradient(90deg,rgba(99,102,241,.12),transparent);border-left:3px solid var(--in);border-radius:6px;padding:.5rem .8rem;font-size:.82rem;color:var(--in);margin:.5rem 0;">🔔 Status gerade eben aktualisiert!</div>
       <div class="divr"></div>
       ${(o.items||[]).map(it=>`<div class="tk-item"><span class="tii">${it.icon||"📦"}</span><span class="tin">${it.name}</span><span class="tiq">×${it.qty}</span><span class="tip">${fmt(it.price*it.qty)}</span></div>`).join("")}
       <div class="tot" style="margin-top:.8rem"><span>Gesamtbetrag</span><strong>${fmt(o.total)}</strong></div>
       <button class="add-art" style="margin-top:.9rem" onclick="copyTrackLink('${shareUrl}')">🔗 Link zum Speichern/Teilen kopieren</button>
     </div>`;
+  startTrackingLiveListener(o);
+}
+
+// ── Live-Listener für Tracking — blinkt wenn Status sich ändert ──
+let _trackUnsub = null;
+function startTrackingLiveListener(o) {
+  if (_trackUnsub) { _trackUnsub(); _trackUnsub = null; }
+  let lastStatus = o.status;
+  _trackUnsub = onSnapshot(doc(db, "orders", o.id), snap => {
+    if (!snap.exists()) return;
+    const updated = snap.data();
+    if (updated.status !== lastStatus) {
+      lastStatus = updated.status;
+      // Flash den Status-Badge + zeig Update-Banner
+      const pill = document.getElementById("track-status-pill");
+      const flash = document.getElementById("track-update-flash");
+      if (pill) {
+        pill.textContent = updated.status;
+        pill.className = "pill " + pillCls(updated.status);
+        pill.style.animation = "none";
+        requestAnimationFrame(() => { pill.style.animation = ""; pill.classList.add("pill-flash"); });
+        setTimeout(() => pill.classList.remove("pill-flash"), 1200);
+      }
+      if (flash) { flash.style.display = "block"; setTimeout(() => { if(flash) flash.style.display="none"; }, 6000); }
+      // Re-render Steps
+      const stepsEl = document.getElementById("track-steps");
+      if (stepsEl) {
+        const STEPS = ["Verarbeitung","Versandt","Zugestellt"];
+        const isCan = updated.status === "Storniert";
+        const si = STEPS.indexOf(updated.status);
+        const steps = isCan
+          ? [{l:"Verarbeitung",dn:false,cr:false},{l:"Storniert",dn:false,cr:true}]
+          : STEPS.map((s,i)=>({l:s,dn:i<si,cr:i===si}));
+        stepsEl.innerHTML = steps.map(s=>`<div class="tk-step"><div class="tk-dot${s.dn?" done":s.cr?" cur":""}"></div><div class="tk-lbl${s.dn?" done":s.cr?" cur":""}">${s.l}</div></div>`).join("");
+      }
+      // Beep + Notification falls erlaubt
+      try {
+        const ctx = new (window.AudioContext||window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.frequency.value = 660; osc.type = "sine"; g.gain.value = 0.12;
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4); osc.stop(ctx.currentTime + 0.4);
+      } catch(e) {}
+      if (Notification.permission === "granted") {
+        new Notification("Illegalo — Status Update 🚀", { body: `Deine Bestellung ist jetzt: ${updated.status}`, icon: "icon-shop.png" });
+      }
+    }
+  });
 }
 window.copyTrackLink = url => {
   navigator.clipboard.writeText(url).then(()=>showToast("Link kopiert! 📋")).catch(()=>showToast("Fehlgeschlagen 😕",true));
