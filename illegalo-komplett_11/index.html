@@ -36,8 +36,11 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;min-hei
 .choice-card.shop .choice-cta{background:var(--in);}
 .choice-card.games .choice-cta{background:var(--pu);}
 
-/* MAINTENANCE SCREEN */
-#maintenance-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:99997;
+.online-widget{margin-top:2rem;width:100%;background:var(--sf);border:1.5px solid var(--bd);border-radius:16px;padding:1rem 1.2rem;text-align:left;}
+.ow-title{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--mu2);margin-bottom:.65rem;}
+.ow-list{display:flex;gap:.5rem;flex-wrap:wrap;}
+.ow-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gr);box-shadow:0 0 6px var(--gr);margin-right:5px;}
+.ow-chip{font-size:.76rem;color:var(--mu);display:flex;align-items:center;}
   flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;}
 #maintenance-screen.show{display:flex;}
 .maint-icon{font-size:3.5rem;margin-bottom:.8rem;}
@@ -60,7 +63,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;min-hei
   <div class="maint-sub" id="maint-sub">Schau später nochmal vorbei. Spiel solang ne Runde Dino! 🦖</div>
   <canvas id="dino-canvas" width="320" height="160"></canvas>
 </div>
-<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v1.0</div>
+<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v1.1</div>
 
 <div id="loading"><div class="spinner"></div><p>Verbinde mit Firebase…</p></div>
 
@@ -82,11 +85,17 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;min-hei
       <div class="choice-cta">Zum Gamecenter →</div>
     </a>
   </div>
+
+  <div class="online-widget" id="online-widget" style="display:none;">
+    <div class="ow-title">🟢 Grad aktiv</div>
+    <div class="ow-list" id="ow-list"></div>
+  </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAcikzCvKFt26eX7J-3vOdZu-b1Fe0X4lk",
@@ -94,13 +103,46 @@ const firebaseConfig = {
   projectId:         "illegalo-shopzone",
   storageBucket:     "illegalo-shopzone.firebasestorage.app",
   messagingSenderId: "73845830641",
-  appId:             "1:73845830641:web:4e9e8967ac4a18b6da4a50"
+  appId:             "1:73845830641:web:4e9e8967ac4a18b6da4a50",
+  databaseURL:       "https://illegalo-shopzone-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+const rtdb = getDatabase(app);
 const errorCol = collection(db, "errorLog");
 if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+
+// ── Online-Widget ──
+let shopPresence = [];
+let gcPresence = [];
+
+function renderOnlineWidget() {
+  const widget = document.getElementById("online-widget");
+  const list = document.getElementById("ow-list");
+  const all = [
+    ...shopPresence.map(u => ({ name: u, where: "Shop" })),
+    ...gcPresence.map(u => ({ name: u, where: "Gamecenter" }))
+  ];
+  if (!all.length) { widget.style.display = "none"; return; }
+  widget.style.display = "block";
+  list.innerHTML = all.map(u =>
+    `<span class="ow-chip"><span class="ow-dot"></span>${u.name} <span style="color:var(--in);font-weight:600;margin-left:3px;">(${u.where})</span></span>`
+  ).join("");
+}
+
+// Shop-Presence (Firestore collection "presence")
+onSnapshot(collection(db, "presence"), snap => {
+  shopPresence = snap.docs.map(d => d.data().user || "?").filter(Boolean);
+  renderOnlineWidget();
+}, () => {});
+
+// Gamecenter-Presence (Realtime Database "status")
+onValue(ref(rtdb, "status"), snap => {
+  const data = snap.val() || {};
+  gcPresence = Object.values(data).filter(v => v?.state === "online").map(v => v.username || "?");
+  renderOnlineWidget();
+}, () => {});
 
 function logError(err, context) {
   try {

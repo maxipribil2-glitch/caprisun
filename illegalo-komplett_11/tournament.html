@@ -7,9 +7,23 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+// MAP — GC Dark/Light persistenz, läuft synchron vor CSS render
+(function(){
+  if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light");
+})();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){
+    btn.textContent = isLight ? "🌙" : "☀️";
+  });
+};
+</script>
 <div class="wrap" style="max-width:480px;">
   <div class="topbar">
     <div class="page-title" style="font-size:14px;"><span class="accent-dot" style="background:var(--am);"></span>Turnier</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
     <button class="ghost" id="leave-btn">← Lobby</button>
   </div>
 
@@ -46,8 +60,7 @@
 </div>
 
 <div class="map-sig">MAP</div>
-<div class="version-tag">v1.0</div>
-<style>.hidden{display:none;}</style>
+<div class="version-tag">v1.2<style>.hidden{display:none;}</style>
 <script type="module" src="maintenance.js"></script>
 <script type="module" src="tournament.js"></script>
 </body>

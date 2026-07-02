@@ -1,6 +1,9 @@
 // MAP — lobby logic: who's online (Realtime Database presence, instant onDisconnect) + invites (Firestore)
 import { app } from "./firebase-config.js";
 import { renderShopAd } from "./ads.js";
+import { toggleLang, applyLang } from "./i18n.js";
+window._toggleLang = toggleLang;
+applyLang();
 import {
   getAuth, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
@@ -146,6 +149,21 @@ if (arcadeGridEl) {
 }
 
 renderShopAd("shop-ad");
+
+// ── Gamecenter Dark/Light Mode ──
+(function applyGcTheme() {
+  if (localStorage.getItem("gc_theme") === "light") {
+    document.body.classList.add("gc-light");
+    const btn = document.getElementById("gc-theme-btn");
+    if (btn) btn.textContent = "🌙";
+  }
+})();
+window.toggleGcTheme = () => {
+  const isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("gc_theme", isLight ? "light" : "dark");
+  const btn = document.getElementById("gc-theme-btn");
+  if (btn) btn.textContent = isLight ? "🌙" : "☀️";
+};
 
 // ── Daily Challenge ──
 const CHALLENGES = [

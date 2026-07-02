@@ -486,6 +486,13 @@ button{font-family:'Inter',sans-serif;}
       <div class="dash-grid">
         <div class="chart-card" style="grid-column:1/-1"><h3>📈 Umsatz — letzte 7 Tage</h3><div id="chart-revenue7"></div></div>
       </div>
+      <div class="dash-grid">
+        <div class="chart-card"><h3>📋 Order-Templates</h3>
+          <div id="templates-list"></div>
+          <button class="export-btn" style="margin-top:.8rem" onclick="saveOrderAsTemplate()">+ Aktuelle Config als Template</button>
+        </div>
+        <div class="chart-card"><h3>⭐ Bewertungen</h3><div id="chart-ratings"></div></div>
+      </div>
       <div class="tbl-wrap">
         <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--bd);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--mu2);">Neueste Bestellungen</div>
         <table class="tbl"><thead><tr><th>Order</th><th>Kunde</th><th>Status</th><th>Betrag</th></tr></thead>
@@ -1200,6 +1207,21 @@ function renderDashboard() {
     `<div class="bar-row"><div class="bar-label"><span>${d.label}</span><span style="color:var(--am)">${fmt(d.rev)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${(d.rev/maxRev)*100}%;background:var(--am)"></div></div></div>`
   ).join("");
 
+  // Ratings
+  const rated = allOrders.filter(o => o.rating);
+  const ratingChart = document.getElementById("chart-ratings");
+  if (ratingChart) {
+    if (!rated.length) {
+      ratingChart.innerHTML = `<div class="empty" style="font-size:.8rem">Noch keine Bewertungen.</div>`;
+    } else {
+      const avg = (rated.reduce((s,o)=>s+o.rating,0)/rated.length).toFixed(1);
+      const dist = [5,4,3,2,1].map(n => ({ n, count: rated.filter(o=>o.rating===n).length }));
+      ratingChart.innerHTML = `<div style="font-size:1.4rem;font-weight:800;color:var(--am);margin-bottom:.6rem">⭐ ${avg} <span style="font-size:.8rem;color:var(--mu);font-weight:400">(${rated.length} Bewertungen)</span></div>` +
+        dist.map(d=>`<div class="bar-row"><div class="bar-label"><span>${d.n}⭐</span><span style="color:var(--am)">${d.count}</span></div><div class="bar-track"><div class="bar-fill" style="width:${rated.length?((d.count/rated.length)*100).toFixed(0):0}%;background:var(--am)"></div></div></div>`).join("");
+    }
+  }
+  renderTemplates();
+
   // recent
   document.getElementById("recent-tbody").innerHTML = allOrders.slice(0,5).map(o=>`
     <tr><td><div class="ord-id">${fmtOrderNum(o)}</div><div class="ord-date">${fmtDt(o.date)}</div></td>
@@ -1296,7 +1318,7 @@ function renderOrdersTable() {
                 <option value="" ${!o.assignedTo?"selected":""}>— Nicht zugewiesen —</option>
                 ${LIEFERANTEN.map(l=>`<option value="${l}" ${o.assignedTo===l?"selected":""}>${lieferantLabel(l)}</option>`).join("")}
               </select>
-              ${o.assignedTo?`<div style="font-size:.76rem;color:${LIEFERANTEN_META[o.assignedTo]?.color||"var(--gr)"};margin-top:.4rem;font-weight:600">✅ Zugewiesen an ${lieferantLabel(o.assignedTo)}</div>`:`<div style="font-size:.76rem;color:var(--mu2);margin-top:.4rem">Noch niemandem zugewiesen</div>`}
+              ${o.assignedTo?`<div style="font-size:.76rem;color:${LIEFERANTEN_META[o.assignedTo]?.color||"var(--gr)"};margin-top:.4rem;font-weight:600">✅ Zugewiesen an ${lieferantLabel(o.assignedTo)}</div>`:`<div style="display:flex;align-items:center;gap:.5rem;margin-top:.4rem"><div style="font-size:.76rem;color:var(--mu2)">Noch niemandem zugewiesen</div><button onclick="event.stopPropagation();autoAssign('${o.id}')" style="background:rgba(99,102,241,.15);border:1.5px solid var(--in);border-radius:6px;color:var(--in);padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">🤖 Auto</button></div>`}
             </div>
             <div class="act-row" style="margin-top:1rem">
               ${!isCan&&o.status!=="Zugestellt"?`<button class="ab adv" onclick="event.stopPropagation();advance('${o.id}','${o.status}')">⏩ Weiter</button><button class="ab can" onclick="event.stopPropagation();cancelOrd('${o.id}')">⏸ Stornieren</button>`:""}
@@ -1318,6 +1340,48 @@ window.assignLieferant = async (id, lieferant) => {
     });
     showToast(lieferant ? `Zugewiesen an ${lieferant}! 🛵` : "Zuweisung entfernt");
   } catch(e) { showToast("Fehler: "+e.message, true); }
+};
+
+// ── Auto-Zuweisung: verfügbarster Lieferant (wer ist verfügbar + hat wenigste aktive Orders) ──
+window.autoAssign = async (orderId) => {
+  const available = LIEFERANTEN.filter(l => lieferantAvailability[l] !== false);
+  if (!available.length) { showToast("Kein Lieferant gerade verfügbar! 😭", true); return; }
+  const counts = {};
+  LIEFERANTEN.forEach(l => counts[l] = 0);
+  allOrders.filter(o => o.assignedTo && o.status !== "Zugestellt" && o.status !== "Storniert")
+    .forEach(o => { if (counts[o.assignedTo] !== undefined) counts[o.assignedTo]++; });
+  const best = available.sort((a,b) => counts[a] - counts[b])[0];
+  await window.assignLieferant(orderId, best);
+  showToast(`Auto-Zuweisung: ${lieferantLabel(best)} 🤖🛵`);
+};
+
+// ── Order-Templates: häufige Combos speichern ──
+const TEMPLATES_KEY = "illegalo_order_templates";
+function getTemplates() { try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY)||"[]"); } catch(e) { return []; } }
+window.saveOrderAsTemplate = () => {
+  const name = prompt("Template-Name (z.B. 'Standart-Bestellung'):");
+  if (!name?.trim()) return;
+  const templates = getTemplates();
+  templates.unshift({ name: name.trim(), createdAt: new Date().toISOString() });
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates.slice(0,10))); // max 10
+  showToast(`Template "${name.trim()}" gespeichert! 📋`);
+  renderTemplates();
+};
+function renderTemplates() {
+  const box = document.getElementById("templates-list");
+  if (!box) return;
+  const templates = getTemplates();
+  if (!templates.length) { box.innerHTML = `<div class="empty" style="font-size:.8rem">Noch keine Templates.</div>`; return; }
+  box.innerHTML = templates.map((t,i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px dashed var(--bd);">
+      <span style="font-size:.84rem">${t.name}</span>
+      <button onclick="deleteTemplate(${i})" style="background:none;border:1.5px solid var(--bd);border-radius:6px;color:var(--mu);padding:3px 8px;font-size:.72rem;cursor:pointer;">✕</button>
+    </div>`).join("");
+}
+window.deleteTemplate = (i) => {
+  const t = getTemplates(); t.splice(i,1);
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(t));
+  renderTemplates();
 };
 
 window.advance = async (id, status) => {

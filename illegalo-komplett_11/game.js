@@ -1,6 +1,7 @@
 // MAP — Tic-Tac-Toe room, synced live via Firestore so both players see the same board
 import { app } from "./firebase-config.js";
 import { renderShopAd } from "./ads.js";
+import { initMatch } from "./match.js";
 import {
   getAuth, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
@@ -55,12 +56,22 @@ onAuthStateChanged(auth, (user) => {
     return;
   }
   myUid = user.uid;
+  const userName = user.displayName || user.email || "Spieler";
   roomRef = doc(db, "rooms", roomId);
+  if (!isSpectator) {
+    initMatch({
+      roomRef, myUid, myName: userName,
+      onRematch: async (room) => {
+        await updateDoc(roomRef, {
+          board: Array(9).fill(null), status: "active", winner: null,
+          rematchRequest: null, chat: [],
+          turn: room.players[Math.random() < 0.5 ? 0 : 1]
+        });
+      }
+    });
+  }
   onSnapshot(roomRef, (snap) => {
-    if (!snap.exists()) {
-      statusEl.textContent = "Dieser Raum existiert nicht (mehr).";
-      return;
-    }
+    if (!snap.exists()) { statusEl.textContent = "Dieser Raum existiert nicht (mehr)."; return; }
     currentRoom = snap.data();
     render();
   });
@@ -105,6 +116,8 @@ function render() {
       if (lastStatus !== "finished") sfx.lose();
     }
     rematchBtn.classList.remove("hidden");
+    const replayBtn = document.getElementById("replay-btn");
+    if (replayBtn && (room.moveHistory || []).length > 0) replayBtn.classList.remove("hidden");
   } else {
     statusEl.textContent = room.turn === myUid ? "Du bist dran." : `${otherName} ist dran...`;
     rematchBtn.classList.add("hidden");
@@ -126,6 +139,9 @@ async function playMove(i) {
     update.status = "finished";
     update.winner = result;
   }
+  // Zug-History für Replay aufzeichnen (max 9 Züge bei TTT)
+  const moveHistory = currentRoom.moveHistory || [];
+  update.moveHistory = [...moveHistory, { uid: myUid, cell: i, board: [...newBoard], ts: Date.now() }];
   await updateDoc(roomRef, update);
   if (result) {
     const winnerUid = result === "draw" ? "draw" : (result === mySymbol ? myUid : otherUid);
@@ -136,18 +152,37 @@ async function playMove(i) {
   }
 }
 
-rematchBtn.addEventListener("click", async () => {
-  await updateDoc(roomRef, {
-    board: Array(9).fill(null),
-    status: "active",
-    winner: null,
-    turn: currentRoom.players[Math.random() < 0.5 ? 0 : 1]
-  });
-});
-
 leaveBtn.addEventListener("click", () => {
   window.location.href = "lobby.html";
 });
+
+// ── Match-Replay ──
+window.startReplay = function() {
+  const history = currentRoom?.moveHistory;
+  if (!history || !history.length) return;
+  const boardEl = document.getElementById("board");
+  let step = 0;
+  // Show empty board
+  renderReplayStep(Array(9).fill(null), currentRoom.symbols);
+  const interval = setInterval(() => {
+    if (step >= history.length) { clearInterval(interval); sfx.win(); return; }
+    const { board } = history[step];
+    renderReplayStep(board, currentRoom.symbols);
+    sfx.move();
+    step++;
+  }, 700);
+};
+
+function renderReplayStep(board, symbols) {
+  const boardEl = document.getElementById("board");
+  boardEl.innerHTML = board.map((cell, i) => {
+    const btn = document.createElement("button");
+    btn.className = "cell";
+    btn.textContent = cell || "";
+    btn.disabled = true;
+    return `<button class="cell" disabled>${cell || ""}</button>`;
+  }).join("");
+}
 
 // ── Emoji-Reaktionen ──
 let lastReactionTs = Date.now();

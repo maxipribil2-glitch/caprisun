@@ -4,6 +4,7 @@
 // ganzen State. Beide Clients bewegen ihr EIGENES Paddle lokal sofort (für direktes Gefühl),
 // das Gegner-Paddle + der Ball kommen aus dem synced Firestore-Doc.
 import { app } from "./firebase-config.js";
+import { initMatch } from "./match.js";
 import { renderShopAd } from "./ads.js";
 import {
   getAuth, onAuthStateChanged
@@ -54,6 +55,14 @@ onAuthStateChanged(auth, (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
   myUid = user.uid;
   roomRef = doc(db, "rooms", roomId);
+  if (!isSpectator) {
+    initMatch({
+      roomRef, myUid, myName: user.displayName || user.email || "Spieler",
+      onRematch: async (room) => {
+        // game-specific rematch logic handled by each game file
+      }
+    });
+  }
   onSnapshot(roomRef, (snap) => {
     if (!snap.exists()) { statusEl.textContent = "Raum existiert nicht (mehr)."; return; }
     currentRoom = snap.data();

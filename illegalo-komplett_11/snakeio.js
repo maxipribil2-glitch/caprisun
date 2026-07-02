@@ -6,6 +6,7 @@
 // from the live onSnapshot data, so what you see is always in sync regardless of who's
 // the authority.
 import { app } from "./firebase-config.js";
+import { initMatch } from "./match.js";
 import { renderShopAd } from "./ads.js";
 import {
   getAuth, onAuthStateChanged
@@ -67,6 +68,14 @@ onAuthStateChanged(auth, (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
   myUid = user.uid;
   roomRef = doc(db, "rooms", roomId);
+  if (!isSpectator) {
+    initMatch({
+      roomRef, myUid, myName: user.displayName || user.email || "Spieler",
+      onRematch: async (room) => {
+        // game-specific rematch logic handled by each game file
+      }
+    });
+  }
   onSnapshot(roomRef, (snap) => {
     if (!snap.exists()) {
       statusEl.textContent = "Dieser Raum existiert nicht (mehr).";

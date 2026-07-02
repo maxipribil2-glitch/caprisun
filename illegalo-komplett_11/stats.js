@@ -65,12 +65,52 @@ async function loadStats() {
   renderStats(filterByPeriod(allResults, currentPeriod));
 }
 
+// MAP — ELO-Berechnung (standard K=32, Startpunkte 1000)
+function calcElo(results) {
+  const elo = {}; // uid → elo-punkte
+  const nameMap = {};
+  // Ergebnisse chronologisch sortieren (älteste zuerst für korrektes ELO)
+  const sorted = [...results].sort((a, b) => (a.at?.toMillis?.() || 0) - (b.at?.toMillis?.() || 0));
+  sorted.forEach(r => {
+    if (!r.players || r.players.length < 2 || r.winner === "draw" || !r.winner) return;
+    const [p1, p2] = r.players;
+    (r.players).forEach(uid => { if (!elo[uid]) elo[uid] = 1000; if (r.playerNames?.[uid]) nameMap[uid] = r.playerNames[uid]; });
+    const winnerUid = r.winner;
+    const loserUid = r.players.find(u => u !== winnerUid);
+    if (!loserUid) return;
+    const eW = elo[winnerUid]; const eL = elo[loserUid];
+    const expW = 1 / (1 + Math.pow(10, (eL - eW) / 400));
+    const K = 32;
+    elo[winnerUid] = Math.round(eW + K * (1 - expW));
+    elo[loserUid]  = Math.round(eL + K * (0 - (1 - expW)));
+  });
+  return Object.entries(elo)
+    .map(([uid, pts]) => ({ uid, pts, name: nameMap[uid] || "?" }))
+    .sort((a, b) => b.pts - a.pts);
+}
+
 function renderStats(results) {
   if (results.length === 0) {
+    document.getElementById("elo-list").innerHTML = `<li class="empty">Noch keine Matches.</li>`;
     overallListEl.innerHTML = `<li class="empty">${allResults.length === 0 ? "Noch keine Matches gespielt — los geht's!" : "Kein Match in diesem Zeitraum."}</li>`;
     perGameEl.innerHTML = `<div class="empty">Keine Daten für diesen Zeitraum.</div>`;
     recentListEl.innerHTML = `<li class="empty">—</li>`;
     return;
+  }
+
+  // ── ELO-Rangliste ──
+  const eloRanking = calcElo(results);
+  const MEDALS = ["🥇","🥈","🥉"];
+  const eloListEl = document.getElementById("elo-list");
+  if (eloListEl) {
+    eloListEl.innerHTML = eloRanking.map((p, i) => {
+      const badge = MEDALS[i] || `#${i+1}`;
+      const color = i === 0 ? "var(--am)" : i === 1 ? "#d4d4f0" : i === 2 ? "#cc8866" : "var(--mu)";
+      return `<li style="color:${color}">
+        <span>${badge} ${p.name}</span>
+        <span style="font-family:'Press Start 2P',monospace;font-size:9px;">${p.pts} ELO</span>
+      </li>`;
+    }).join("") || `<li class="empty">Noch keine Daten.</li>`;
   }
 
   // ── Gesamtwertung: Siege pro Spieler über alle Spiele ──

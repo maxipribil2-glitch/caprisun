@@ -144,7 +144,7 @@ textarea{resize:vertical;}
   <div class="maint-sub" id="maint-sub">Der Admin hat den Shop kurz ausgeschaltet. Spiel solang ne Runde Dino! 🦖</div>
   <canvas id="dino-canvas" width="320" height="160"></canvas>
 </div>
-<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.7</div>
+<div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.9</div>
 
 <div id="loading"><div class="spinner"></div><p>Verbinde mit Firebase…</p></div>
 
@@ -154,7 +154,10 @@ textarea{resize:vertical;}
     <button class="nb on" id="btn-post" onclick="showPage('post')">✍️ Bestellen</button>
     <button class="nb" id="btn-orders" onclick="showPage('orders')">📦 Orders <span id="order-count"></span></button>
     <button class="nb" id="btn-track" onclick="showPage('track')">🔍 Verfolgen</button>
-    <button class="nb" id="theme-toggle" onclick="toggleTheme()" title="Dark/Light wechseln" style="padding:6px 10px;font-size:1rem;">☀️</button>
+    <button class="nb" id="btn-history" onclick="showPage('history')">📜 Verlauf</button>
+    <button class="nb" id="btn-wish" onclick="showPage('wish')">⭐ Wunschliste</button>
+    <button class="nb" id="btn-theme" onclick="toggleTheme()" title="Dark/Light wechseln" style="padding:6px 10px;font-size:1rem;">☀️</button>
+    <button class="nb" id="lang-toggle" onclick="window._toggleLang && window._toggleLang()" style="padding:6px 10px;font-size:.78rem;font-weight:700;">🇬🇧 EN</button>
   </div>
   <div class="conn"><div class="conn-dot" id="conn-dot"></div><span id="conn-label" style="color:var(--mu)">…</span></div>
 </header>
@@ -207,6 +210,30 @@ textarea{resize:vertical;}
   <div class="olist" id="orders-list"></div>
 </div>
 
+<div class="page" id="page-history">
+  <div class="pgtitle">Mein <em>Verlauf</em> 📜</div>
+  <div class="pgsub">Alle deine bisherigen Bestellungen — nach Name aus dem Kundendaten-Feld.</div>
+  <div class="crd" style="margin-bottom:1rem">
+    <div class="fg"><label>Name (wie beim Bestellen)</label>
+      <input id="history-name" placeholder="Max Mustermann" oninput="renderHistory()"/>
+    </div>
+  </div>
+  <div id="history-list"><div class="empty">Name eingeben um Verlauf zu laden.</div></div>
+</div>
+
+<div class="page" id="page-wish">
+  <div class="pgtitle">Wunschliste <em>/ Vorbestellung</em> ⭐</div>
+  <div class="pgsub">Artikel merken — erscheinen beim nächsten Bestellen als Quick-Pick.</div>
+  <div class="crd">
+    <div class="crd-t">+ Wunsch hinzufügen</div>
+    <div class="arow" style="margin-bottom:0">
+      <input id="wish-input" placeholder="z.B. AirPods Pro" style="flex:1" onkeydown="if(event.key==='Enter')addWish()"/>
+      <button class="post-btn" style="width:auto;flex-shrink:0;margin-top:0;padding:10px 18px" onclick="addWish()">+ Merken</button>
+    </div>
+  </div>
+  <div id="wish-list"></div>
+</div>
+
 <div class="page" id="page-track">
   <div class="pgtitle">Bestellung <em>verfolgen</em> 🔍</div>
   <div class="pgsub">Bestellnummer eingeben oder gespeicherten Link öffnen — geht auch ohne Login, von jedem Gerät.</div>
@@ -224,8 +251,11 @@ textarea{resize:vertical;}
 
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs }
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs, updateDoc }
                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { toggleLang, applyLang } from "./i18n.js";
+window._toggleLang = toggleLang;
+applyLang();
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║   ✏️  DEINEN FIREBASE CONFIG HIER EINFÜGEN              ║
@@ -261,11 +291,17 @@ function updateOfflineBanner() {
   document.getElementById("offline-banner").classList.toggle("show", !isOnline);
   setConn(isOnline);
 }
-window.addEventListener("online",  () => { isOnline = true;  updateOfflineBanner(); flushOfflineQueue(); });
+window.addEventListener("online",  () => { isOnline = true;  updateOfflineBanner(); if(window._flushOfflineQueue) window._flushOfflineQueue(); });
 window.addEventListener("offline", () => { isOnline = false; updateOfflineBanner(); });
 updateOfflineBanner();
 
-async function flushOfflineQueue() {
+function initFirebase() {
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const col = collection(db, "orders");
+
+// ── Offline-Queue Flush (braucht col + getNextOrderNumber, die erst hier existieren) ──
+window._flushOfflineQueue = async function() {
   const queue = getOfflineQueue();
   if (!queue.length) return;
   for (const pending of queue) {
@@ -276,12 +312,7 @@ async function flushOfflineQueue() {
     } catch(e) { break; }
   }
   saveOfflineQueue([]);
-}
-
-function initFirebase() {
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
-const col = collection(db, "orders");
+};
 
 if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 
@@ -569,7 +600,14 @@ window.showPage = name => {
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("on"));
   document.querySelectorAll(".nb").forEach(b=>b.classList.remove("on"));
   document.getElementById("page-"+name).classList.add("on");
-  document.getElementById("btn-"+name).classList.add("on");
+  const btn = document.getElementById("btn-"+name);
+  if (btn) btn.classList.add("on");
+  if (name === "wish") renderWishlist();
+  if (name === "history") {
+    const saved = (() => { try { return JSON.parse(localStorage.getItem("illegalo_last_customer")||"null"); } catch(e) { return null; } })();
+    const nameEl = document.getElementById("history-name");
+    if (nameEl && saved?.name && !nameEl.value) { nameEl.value = saved.name; renderHistory(); }
+  }
 };
 
 // ── Order-Tracking ohne Login ──
@@ -597,6 +635,15 @@ function renderTrackResult(o) {
     ? [{l:"Verarbeitung",dn:false,cr:false},{l:"Storniert",dn:false,cr:true}]
     : STEPS.map((s,i)=>({l:s,dn:i<si,cr:i===si}));
   const shareUrl = location.origin + location.pathname + "?order=" + o.orderNumber;
+  const savedRating = o.rating || 0;
+  const ratingHtml = o.status === "Zugestellt" ? `
+    <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--bd)">
+      <div style="font-size:.76rem;font-weight:700;color:var(--mu2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.4rem">⭐ Wie war die Lieferung?</div>
+      <div id="rating-stars" style="display:flex;gap:6px;">
+        ${[1,2,3,4,5].map(n=>`<button onclick="rateOrder('${o.id}',${n})" style="background:none;border:none;font-size:24px;cursor:pointer;padding:0;box-shadow:none;transition:.1s;opacity:${n<=savedRating?1:.3}" data-star="${n}">⭐</button>`).join("")}
+      </div>
+      ${savedRating ? `<div style="font-size:.76rem;color:var(--gr);margin-top:.3rem">Danke für dein Feedback! ✅</div>` : ""}
+    </div>` : "";
   document.getElementById("track-result").innerHTML = `
     <div class="crd" id="track-card-${o.id}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem;flex-wrap:wrap;gap:.5rem">
@@ -608,10 +655,22 @@ function renderTrackResult(o) {
       <div class="divr"></div>
       ${(o.items||[]).map(it=>`<div class="tk-item"><span class="tii">${it.icon||"📦"}</span><span class="tin">${it.name}</span><span class="tiq">×${it.qty}</span><span class="tip">${fmt(it.price*it.qty)}</span></div>`).join("")}
       <div class="tot" style="margin-top:.8rem"><span>Gesamtbetrag</span><strong>${fmt(o.total)}</strong></div>
+      ${ratingHtml}
       <button class="add-art" style="margin-top:.9rem" onclick="copyTrackLink('${shareUrl}')">🔗 Link zum Speichern/Teilen kopieren</button>
     </div>`;
   startTrackingLiveListener(o);
 }
+
+window.rateOrder = async (orderId, stars) => {
+  try {
+    await updateDoc(doc(db, "orders", orderId), { rating: stars });
+    // Update stars visual immediately
+    document.querySelectorAll("#rating-stars button").forEach(btn => {
+      btn.style.opacity = Number(btn.dataset.star) <= stars ? "1" : "0.3";
+    });
+    showToast(`${stars}⭐ Bewertung gespeichert! Danke 🙏`);
+  } catch(e) { showToast("Fehler: " + e.message, true); }
+};
 
 // ── Live-Listener für Tracking — blinkt wenn Status sich ändert ──
 let _trackUnsub = null;
@@ -754,6 +813,75 @@ function renderGcAd(elId) {
 ["gc-ad-post","gc-ad-orders","gc-ad-track"].forEach(renderGcAd);
 
 loadLastCustomer();
+
+// ── Bestellhistorie pro Kunde ──
+window.renderHistory = () => {
+  const name = (document.getElementById("history-name")?.value || "").trim().toLowerCase();
+  const box = document.getElementById("history-list");
+  if (!box) return;
+  if (!name) { box.innerHTML = `<div class="empty">Name eingeben um Verlauf zu laden.</div>`; return; }
+  const mine = allOrders.filter(o => (o.customer?.name||"").trim().toLowerCase() === name);
+  if (!mine.length) { box.innerHTML = `<div class="empty">Keine Bestellungen unter diesem Namen gefunden.</div>`; return; }
+  const total = mine.filter(o=>o.status!=="Storniert").reduce((s,o)=>s+(o.total||0),0);
+  box.innerHTML = `
+    <div class="stats" style="margin-bottom:1rem;">
+      <div class="stat"><div class="stl">Bestellungen</div><div class="stv ci">${mine.length}</div></div>
+      <div class="stat"><div class="stl">Ausgegeben</div><div class="stv ca">${fmt(total)}</div></div>
+      <div class="stat"><div class="stl">⭐ Ø Bewertung</div><div class="stv cg">${(mine.filter(o=>o.rating).reduce((s,o)=>s+o.rating,0)/(mine.filter(o=>o.rating).length||1)).toFixed(1)}</div></div>
+    </div>
+    ${mine.map(o=>`<div class="oc" style="margin-bottom:.6rem">
+      <div><div class="oid">${fmtOrderNum(o)}</div><div class="odt">${fmtDt(o.date)}</div></div>
+      <span class="pill ${pillCls(o.status)}">${o.status}</span>
+      <span class="oamt">${fmt(o.total)}</span>
+      ${o.rating ? `<span style="font-size:.8rem">⭐${o.rating}</span>` : ""}
+    </div>`).join("")}`;
+};
+
+// ── Wunschliste / Vorbestellung ──
+const WISH_KEY = "illegalo_wishlist";
+function getWishlist() { try { return JSON.parse(localStorage.getItem(WISH_KEY)||"[]"); } catch(e) { return []; } }
+function saveWishlist(w) { localStorage.setItem(WISH_KEY, JSON.stringify(w)); }
+
+window.renderWishlist = () => {
+  const box = document.getElementById("wish-list");
+  if (!box) return;
+  const wishes = getWishlist();
+  if (!wishes.length) { box.innerHTML = `<div class="crd empty" style="margin-top:1rem">Noch nichts auf der Wunschliste.</div>`; return; }
+  box.innerHTML = wishes.map((w, i) => `
+    <div class="oc" style="margin-top:.5rem">
+      <span style="flex:1">⭐ ${w}</span>
+      <button onclick="addWishToCart(${i})" style="background:var(--in);border:none;border-radius:7px;color:#fff;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;margin-right:6px">+ In Bestellung</button>
+      <button onclick="removeWish(${i})" style="background:none;border:1.5px solid var(--bd);border-radius:7px;color:var(--mu);padding:5px 10px;font-size:.78rem;cursor:pointer">✕</button>
+    </div>`).join("");
+};
+window.addWish = () => {
+  const inp = document.getElementById("wish-input");
+  const val = (inp?.value || "").trim();
+  if (!val) return;
+  const w = getWishlist();
+  w.unshift(val);
+  saveWishlist(w);
+  inp.value = "";
+  renderWishlist();
+  showToast(`"${val}" auf der Wunschliste! ⭐`);
+};
+window.removeWish = (i) => {
+  const w = getWishlist();
+  w.splice(i,1);
+  saveWishlist(w);
+  renderWishlist();
+};
+window.addWishToCart = (i) => {
+  const w = getWishlist();
+  const name = w[i];
+  const emptySlot = items.find(it => !it.name);
+  if (emptySlot) { emptySlot.name = name; }
+  else { items.push({ name, emoji: "⭐", qty: 1, price: "" }); }
+  renderItems();
+  showPage("post");
+  showToast(`"${name}" zur Bestellung hinzugefügt!`);
+};
+renderWishlist();
 renderItems();
 
 const urlOrderNum = new URLSearchParams(location.search).get("order");

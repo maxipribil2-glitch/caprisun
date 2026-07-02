@@ -471,3 +471,22 @@ button:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; transfor
 /* blinking "press start"-style call to action */
 .blink-cta { animation: blink-cta 1s steps(2) infinite; }
 @keyframes blink-cta { 50% { opacity: 0.3; } }
+
+/* ── Gamecenter Light Mode (optional toggle, per localStorage) ── */
+body.gc-light {
+  --bg: #f8f5ff;
+  --sf: #ffffff;
+  --s2: #f0ecff;
+  --bd: #c4b8e8;
+  --tx: #1a1030;
+  --mu: #5a4880;
+  --mu2: #9a8cc0;
+}
+body.gc-light::before { opacity: 0.06; }
+body.gc-light::after  { opacity: 0.1; }
+body.gc-light .page-title { text-shadow: 0 0 4px var(--bl); }
+.gc-theme-btn {
+  background: var(--s2); border: 2px solid var(--bd); border-radius: 4px;
+  color: var(--mu); font-size: 13px; padding: 5px 9px; cursor: pointer; box-shadow: none;
+}
+.gc-theme-btn:hover { border-color: var(--bl); color: var(--bl); }

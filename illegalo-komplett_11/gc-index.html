@@ -7,8 +7,22 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+// MAP — GC Dark/Light persistenz, läuft synchron vor CSS render
+(function(){
+  if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light");
+})();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){
+    btn.textContent = isLight ? "🌙" : "☀️";
+  });
+};
+</script>
 <div class="wrap center" style="max-width:420px; padding-top:72px;">
 
+  <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
   <a href="shop.html" class="hint" style="display:inline-block;margin-bottom:18px;text-decoration:underline;cursor:pointer;">← Zurück zu Illegalo</a>
   <div class="page-title" style="justify-content:center;"><span class="accent-dot"></span>ILLEGALO GAMECENTER</div>
   <div class="sub">log in oder registrier dich, um zu sehen wer grad online zockt 🎮</div>
@@ -42,8 +56,7 @@
 </div>
 
 <div class="map-sig">MAP</div>
-<div class="version-tag">v1.3</div>
-
+<div class="version-tag">v1.5
 <style>.hidden{display:none;}</style>
 <script type="module" src="maintenance.js"></script>
 <script type="module" src="auth.js"></script>
