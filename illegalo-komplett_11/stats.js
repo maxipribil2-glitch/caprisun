@@ -22,7 +22,8 @@ const periodBtns = document.querySelectorAll(".period-btn");
 
 const GAME_NAMES = {
   tictactoe: "Tic-Tac-Toe", snakeio: "Snake.io", katapult: "Katapult Tower",
-  connect4: "Vier Gewinnt", pong: "Pong"
+  connect4: "Vier Gewinnt", pong: "Pong", reaction: "Reaction Duell",
+  battleship: "Schiffe versenken"
 };
 
 renderShopAd("shop-ad");

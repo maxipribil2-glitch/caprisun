@@ -14,6 +14,7 @@ import {
   getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
+import { awardGameReward } from "./gamocoin.js";
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -249,6 +250,7 @@ async function finalizeShot(result, hitObstacleIndex, vx, vy) {
         game: "katapult", players: room.players, playerNames: room.playerNames,
         winner: myUid, at: serverTimestamp()
       }).catch(() => {});
+      awardGameReward(myUid, 100, "katapult_win").catch(() => {});
     }
   } catch (e) {}
 }

@@ -38,7 +38,11 @@ let localBets = {};
 let betHistory = []; // für undo
 
 // Multiplayer table
-const TABLE_ID = "main"; // one shared table for everyone
+// MAP FIX: Tisch-ID kommt jetzt aus dem URL-Parameter ?table=xyz, Default bleibt "main"
+// falls keiner angegeben ist. Heißt: wenn's mal mehr Leute werden, könnt ihr über
+// z.B. roulette.html?table=vip einen zweiten Tisch parallel laufen lassen, ohne dass
+// sich alle den gleichen Tisch teilen müssen.
+const TABLE_ID = new URLSearchParams(window.location.search).get("table") || "main";
 let tableRef = null;
 let tableUnsub = null;
 let currentPhase = "betting"; // betting | spinning | result

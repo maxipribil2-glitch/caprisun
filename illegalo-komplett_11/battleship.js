@@ -295,7 +295,22 @@ rematchBtn.addEventListener("click", async () => {
   initSetup();
 });
 
-leaveBtn.addEventListener("click", () => { window.location.href = "lobby.html"; });
+leaveBtn.addEventListener("click", async () => {
+  // MAP FIX: wer mitten im Match "Verlassen" klickt, gibt auf — Gegner kriegt
+  // den Sieg + Coins geschrieben, statt dass der andere für immer auf den nächsten
+  // Zug wartet. Zählt nur wenn's schon in der Kampf-Phase war (nicht während Setup).
+  if (!isSpectator && currentRoom && currentRoom.status === "active") {
+    const oppUid = opponentUid();
+    try {
+      await updateDoc(roomRef, { status: "finished", winner: oppUid });
+      addDoc(collection(db, "matchResults"), {
+        game: "battleship", players: currentRoom.players, playerNames: currentRoom.playerNames,
+        winner: oppUid, at: serverTimestamp()
+      }).catch(() => {});
+    } catch (e) {}
+  }
+  window.location.href = "lobby.html";
+});
 
 // ── Emoji-Reaktionen ──
 let lastReactionTs = Date.now();

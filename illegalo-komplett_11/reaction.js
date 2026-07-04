@@ -126,41 +126,93 @@ async function handleClick() {
   if (clickedThisRound) return;
   clickedThisRound = true;
   const phase = currentRoom.phase;
+  const clickMs = Date.now() - (currentRoom.greenAt || Date.now()); // eigene Reaktionszeit
 
   if (phase === "wait_green") {
     // False start — sofort verloren für diese Runde
     clearTimeout(roundTimer);
     sfx.lose ? sfx.lose() : null;
-    await finishRound("false_start", myUid);
+    await reportClick("false_start", clickMs);
     return;
   }
   if (phase === "green") {
     sfx.win ? sfx.win() : null;
-    await finishRound(myUid, null);
+    await reportClick("green", clickMs);
   }
 }
 
-async function finishRound(roundWinnerOrFlag, falseStartBy) {
-  // Nur der erste Klick "gewinnt" — check via Firestore-Update mit aktuellem State,
-  // um Race Conditions zwischen beiden Clients zu minimieren (best effort, kein
-  // Transaction nötig da falscher Doppel-Score hier nur kosmetisch minimal wäre).
+// MAP FIX: statt "wer zuerst bei Firestore ankommt gewinnt" (unfair bei
+// unterschiedlichem Ping) schreibt jetzt jeder Client nur seine EIGENE gemessene
+// Reaktionszeit (clickMs) rein. Erst wenn BEIDE Zeiten da sind, wird lokal verglichen
+// wer wirklich schneller war — Ping spielt dabei keine Rolle mehr, nur die tatsächlich
+// gemessene Zeit zwischen "grün" und Klick zählt.
+async function reportClick(type, clickMs) {
   const room = currentRoom;
   if (room.phase === "round_result") return; // schon entschieden
+  try {
+    await updateDoc(roomRef, {
+      [`roundClicks.${myUid}`]: { type, clickMs, at: Date.now() }
+    });
+    await maybeResolveRound();
+  } catch (e) {}
+}
 
-  const opponent = opponentUid();
-  const isFalseStart = roundWinnerOrFlag === "false_start";
-  const winnerUid = isFalseStart ? opponent : myUid;
+async function maybeResolveRound() {
+  const room = currentRoom;
+  if (!room || room.phase === "round_result") return;
+  const clicks = room.roundClicks || {};
+  const oppUid = opponentUid();
+  const mine = clicks[myUid];
+  const theirs = clicks[oppUid];
+  if (!mine) return;
+
+  // Beide haben geklickt -> lokal vergleichen wer schneller/fairer war.
+  // Nur EIN Client (der mit der niedrigeren uid, damit's deterministisch nur einmal
+  // läuft) schreibt das Endergebnis, damit nicht beide gleichzeitig versuchen zu resolven.
+  const shouldResolve = !theirs ? false : myUid < oppUid;
+  if (theirs && shouldResolve) {
+    await finishRound(mine, theirs, oppUid);
+  } else if (!theirs) {
+    // Warte kurz auf den Gegner-Klick, falls er noch unterwegs ist (max 2.5s)
+    clearTimeout(roundTimer);
+    roundTimer = setTimeout(async () => {
+      const snap = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js")
+        .then(m => m.getDoc(roomRef));
+      const data = snap.data();
+      const theirsLate = data.roundClicks?.[oppUid];
+      if (theirsLate && myUid < oppUid) {
+        await finishRound(data.roundClicks[myUid], theirsLate, oppUid);
+      } else if (!theirsLate) {
+        // Gegner hat noch nicht mal geklickt (evtl. AFK) — ich gewinne die Runde
+        if (myUid < oppUid || !data.roundClicks?.[oppUid]) {
+          await finishRound(mine, null, oppUid);
+        }
+      }
+    }, 2500);
+  }
+}
+
+async function finishRound(mine, theirs, oppUid) {
+  const room = currentRoom;
+  if (room.phase === "round_result") return;
+
+  let winnerUid, isFalseStart = false, falseStartUid = null;
+  if (mine.type === "false_start") { winnerUid = oppUid; isFalseStart = true; falseStartUid = myUid; }
+  else if (theirs && theirs.type === "false_start") { winnerUid = myUid; isFalseStart = true; falseStartUid = oppUid; }
+  else if (!theirs) { winnerUid = myUid; } // Gegner hat nicht reagiert
+  else { winnerUid = mine.clickMs <= theirs.clickMs ? myUid : oppUid; }
+
   const newScores = { ...(room.scores || {}) };
   newScores[winnerUid] = (newScores[winnerUid] || 0) + 1;
-
   const gameFinished = newScores[winnerUid] >= ROUNDS_TO_WIN;
 
   try {
     await updateDoc(roomRef, {
       phase: "round_result",
-      lastRoundWinner: isFalseStart ? "false_start" : myUid,
-      falseStartBy: isFalseStart ? myUid : null,
+      lastRoundWinner: isFalseStart ? "false_start" : winnerUid,
+      falseStartBy: falseStartUid,
       scores: newScores,
+      roundClicks: {},
       status: gameFinished ? "finished" : "active",
       winner: gameFinished ? winnerUid : null
     });
@@ -170,7 +222,7 @@ async function finishRound(roundWinnerOrFlag, falseStartBy) {
         winner: winnerUid, at: serverTimestamp()
       }).catch(() => {});
       if (winnerUid === myUid) awardGameReward(myUid, 100, "reaction_win").catch(() => {});
-    } else if (isHost()) {
+    } else if (myUid < oppUid) { // nur einer der beiden treibt die nächste Runde an
       setTimeout(() => {
         updateDoc(roomRef, { round: (room.round || 0) + 1, phase: "waiting", roundStartAt: null }).then(() => {
           setTimeout(() => startRound(), 400);
@@ -191,7 +243,24 @@ rematchBtn.addEventListener("click", async () => {
   if (isHost()) setTimeout(() => startRound(), 500);
 });
 
-leaveBtn.addEventListener("click", () => { clearTimeout(roundTimer); window.location.href = "lobby.html"; });
+leaveBtn.addEventListener("click", async () => {
+  clearTimeout(roundTimer);
+  // MAP FIX: wer mitten im Match "Verlassen" klickt, gibt auf — Gegner kriegt
+  // den Sieg + Coins geschrieben, statt dass der andere für immer wartet.
+  if (!isSpectator && currentRoom && currentRoom.status === "active") {
+    const oppUid = opponentUid();
+    try {
+      await updateDoc(roomRef, { status: "finished", winner: oppUid, phase: "round_result", lastRoundWinner: oppUid });
+      addDoc(collection(db, "matchResults"), {
+        game: "reaction", players: currentRoom.players, playerNames: currentRoom.playerNames,
+        winner: oppUid, at: serverTimestamp()
+      }).catch(() => {});
+      // Coin-Reward geht hier an den ÜBRIGGEBLIEBENEN Client selbst (der schreibt sich
+      // seine eigenen Coins, wenn sein Snapshot-Listener status:"finished" sieht).
+    } catch (e) {}
+  }
+  window.location.href = "lobby.html";
+});
 
 // ── Emoji-Reaktionen ──
 let lastReactionTs = Date.now();

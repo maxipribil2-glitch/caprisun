@@ -78,10 +78,27 @@ export async function payout(uid, amount) {
 // ── Gewinn-Coins aus anderen Games (Match-Siege, Highscores etc.) ──
 // Hard-gecappt bei MAX_GAME_REWARD (500), egal was reingegeben wird — verhindert
 // dass ein Game (jetzt oder in Zukunft) versehentlich/absichtlich mehr auszahlt.
+// MAP FIX: zusätzlich Cooldown von 20s zwischen zwei Game-Rewards für den gleichen
+// User (users/{uid}.lastGameRewardAt) — verhindert dass wer sich mit 2 Accounts
+// gegeneinander Tic-Tac-Toe spammt und sich Coins ohne Ende farmt.
+const REWARD_COOLDOWN_MS = 20_000;
+
 export async function awardGameReward(uid, amount, reason) {
   const capped = Math.max(0, Math.min(Math.round(amount), MAX_GAME_REWARD));
   if (capped <= 0) return false;
-  return await addCoins(uid, capped, reason || "game_reward");
+  try {
+    const ref = doc(db, "users", uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return false;
+    const last = snap.data().lastGameRewardAt?.toMillis?.() || 0;
+    if (Date.now() - last < REWARD_COOLDOWN_MS) return false; // zu früh, kein Reward
+    await updateDoc(ref, {
+      gamocoins: increment(capped),
+      lastGameRewardAt: serverTimestamp(),
+      [`coinLog_${Date.now()}`]: { amount: capped, reason: reason || "game_reward", at: new Date().toISOString() }
+    });
+    return true;
+  } catch (e) { return false; }
 }
 
 // ── Formatierung ──
