@@ -591,12 +591,18 @@ button{font-family:'Inter',sans-serif;}
   </div>
 </div>
 
+<div id="cleanup-panel" style="position:fixed;bottom:16px;right:16px;z-index:50;">
+  <button id="cleanup-rooms-btn" class="ghost" title="Löscht beendete Gamecenter-Matches älter als 24h">🧹 Alte Rooms aufräumen</button>
+  <div id="cleanup-status" style="font-size:12px;margin-top:4px;text-align:right;"></div>
+</div>
+
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, arrayUnion, addDoc, getDoc }
                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { cleanupOldRooms } from "./cleanupRooms.js";
 
 let CURRENT_USER = null;
 let DB_REF = null, PRES_SID = null;
@@ -1827,6 +1833,18 @@ window.copyShopLink = function() {
 // expose to HTML onclick
 window.doLogin  = doLogin;
 window.doLogout = doLogout;
+
+document.getElementById("cleanup-rooms-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("cleanup-status");
+  statusEl.textContent = "Räum auf...";
+  try {
+    const deleted = await cleanupOldRooms(24);
+    statusEl.textContent = deleted > 0 ? `${deleted} alte Room(s) gelöscht ✅` : "Nix zu löschen, alles clean ✅";
+  } catch (e) {
+    statusEl.textContent = "Fehler — evtl. fehlt der Firestore-Index (Konsole checken).";
+  }
+});
 </script>
+
 </body>
 </html>

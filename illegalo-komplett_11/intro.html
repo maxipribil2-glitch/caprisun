@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Initialising...</title>
+<style>
+  html,body{margin:0;padding:0;background:#050608;overflow:hidden;height:100%;}
+  #matrix-canvas{position:fixed;top:0;left:0;width:100%;height:100%;}
+  #intro-text{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;font-family:'Press Start 2P','VT323',monospace;
+    color:#3ef07a;text-shadow:0 0 8px #3ef07a,0 0 16px #3ef07a;
+    z-index:5;width:90%;
+  }
+  #intro-line1{font-size:14px;letter-spacing:2px;opacity:.85;}
+  #intro-line2{font-size:20px;margin-top:14px;min-height:28px;}
+  .blink{animation:blink 1s steps(2) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+</style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+<div id="intro-text">
+  <div id="intro-line1">INITIALISING<span class="blink">...</span></div>
+  <div id="intro-line2"></div>
+</div>
+
+<div style="position:fixed;bottom:12px;left:16px;font-family:'Caveat',cursive;font-size:23px;color:#3ef07a;z-index:5;">MAP</div>
+
+<script>
+// MAP — Matrix-Style Intro nach dem Login. Läuft ~2.8s, zeigt dann
+// "Welcome back {username}" und leitet automatisch zur Lobby weiter.
+const params = new URLSearchParams(window.location.search);
+const username = params.get("u") || "Spieler";
+const canvas = document.getElementById("matrix-canvas");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const CHARS = "アイウエオカキクケコサシスセソタチツテト0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const fontSize = 16;
+let columns = Math.floor(canvas.width / fontSize);
+let drops = Array(columns).fill(1);
+
+function draw() {
+  ctx.fillStyle = "rgba(5,6,8,0.08)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#3ef07a";
+  ctx.font = fontSize + "px monospace";
+  for (let i = 0; i < drops.length; i++) {
+    const text = CHARS[Math.floor(Math.random() * CHARS.length)];
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  }
+}
+
+let rafId = setInterval(draw, 33);
+
+// ── Text-Sequenz ──
+setTimeout(() => {
+  document.getElementById("intro-line2").textContent = `Welcome back, ${username} 👋`;
+}, 1800);
+
+setTimeout(() => {
+  clearInterval(rafId);
+  window.location.href = "lobby.html";
+}, 3200);
+
+// Skip-Möglichkeit falls wer's eilig hat — Tap/Klick überspringt sofort
+document.body.addEventListener("pointerdown", () => {
+  clearInterval(rafId);
+  window.location.href = "lobby.html";
+});
+</script>
+
+</body>
+</html>

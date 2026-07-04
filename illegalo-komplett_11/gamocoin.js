@@ -7,7 +7,7 @@
 
 import { app } from "./firebase-config.js";
 import {
-  getFirestore, doc, getDoc, updateDoc, increment, serverTimestamp
+  getFirestore, doc, getDoc, updateDoc, increment, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const db = getFirestore(app);
@@ -81,24 +81,38 @@ export async function payout(uid, amount) {
 // MAP FIX: zusätzlich Cooldown von 20s zwischen zwei Game-Rewards für den gleichen
 // User (users/{uid}.lastGameRewardAt) — verhindert dass wer sich mit 2 Accounts
 // gegeneinander Tic-Tac-Toe spammt und sich Coins ohne Ende farmt.
-const REWARD_COOLDOWN_MS = 20_000;
+const REWARD_COOLDOWN_MS = 10_000;
+const SOLO_GAMES = new Set(["snake_score", "breakout_score", "2048_score", "flappy_score"]);
 
+// MAP FIX: eigener Cooldown-Timestamp je Quelle (solo Highscore vs 1v1 Match-Sieg),
+// damit ein Snake-Highscore nicht mehr den Cooldown für dein nächstes 1v1-Match blockt.
 export async function awardGameReward(uid, amount, reason) {
   const capped = Math.max(0, Math.min(Math.round(amount), MAX_GAME_REWARD));
   if (capped <= 0) return false;
+  const cooldownField = SOLO_GAMES.has(reason) ? "lastSoloRewardAt" : "lastGameRewardAt";
+  const ref = doc(db, "users", uid);
   try {
-    const ref = doc(db, "users", uid);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return false;
-    const last = snap.data().lastGameRewardAt?.toMillis?.() || 0;
-    if (Date.now() - last < REWARD_COOLDOWN_MS) return false; // zu früh, kein Reward
-    await updateDoc(ref, {
-      gamocoins: increment(capped),
-      lastGameRewardAt: serverTimestamp(),
-      [`coinLog_${Date.now()}`]: { amount: capped, reason: reason || "game_reward", at: new Date().toISOString() }
+    const result = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return "no_user";
+      const last = snap.data()[cooldownField]?.toMillis?.() || 0;
+      if (Date.now() - last < REWARD_COOLDOWN_MS) return "cooldown";
+      tx.update(ref, {
+        gamocoins: increment(capped),
+        [cooldownField]: serverTimestamp(),
+        [`coinLog_${Date.now()}`]: { amount: capped, reason: reason || "game_reward", at: new Date().toISOString() }
+      });
+      return "ok";
     });
-    return true;
-  } catch (e) { return false; }
+    if (result === "cooldown") {
+      console.log(`[gamocoin] Reward-Cooldown aktiv für ${uid} (${cooldownField}), kein Fehler.`);
+      return false;
+    }
+    return result === "ok";
+  } catch (e) {
+    console.error("[gamocoin] awardGameReward failed:", e);
+    return false;
+  }
 }
 
 // ── Formatierung ──

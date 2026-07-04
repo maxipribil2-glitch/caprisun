@@ -269,7 +269,9 @@ async function fireShot(r, c) {
 
   try {
     sfx.hit ? sfx.hit() : null;
-    if (hit) { sunkThisShot ? (sfx.win ? sfx.win() : null) : null; } else { sfx.move ? sfx.move() : null; }
+    if (sunkThisShot && !allSunk) sfx.win ? sfx.win() : null; // Extra-Cue: einzelnes Schiff versenkt
+    if (allSunk) { sfx.win ? sfx.win() : null; }
+    if (!hit) { sfx.move ? sfx.move() : null; }
     await updateDoc(roomRef, {
       [`shots.${myUid}`]: newShots,
       [`ships.${oppUid}`]: newOppShips,

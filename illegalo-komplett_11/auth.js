@@ -96,6 +96,6 @@ registerForm.addEventListener("submit", async (e) => {
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    window.location.href = "lobby.html";
+    window.location.href = "intro.html?u=" + encodeURIComponent(username);
   }
 });

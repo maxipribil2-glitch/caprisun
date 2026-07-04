@@ -66,6 +66,11 @@
 <div class="wrap" style="max-width:760px;">
   <div class="topbar">
     <div class="page-title" style="font-size:13px;"><span class="accent-dot" style="background:var(--am);"></span>Roulette</div>
+    <select id="table-select" style="font-family:'VT323',monospace;font-size:15px;background:var(--s2);color:var(--tx);border:1.5px solid var(--bd);border-radius:6px;padding:3px 6px;margin-left:6px;">
+      <option value="main">Haupttisch</option>
+      <option value="vip">VIP-Tisch</option>
+      <option value="chill">Chill-Tisch</option>
+    </select>
     <div style="display:flex;gap:8px;align-items:center;">
       <span class="coin-display" id="balance-display">…🪙</span>
       <button class="ghost" onclick="claimBonus()" title="Daily Bonus">🎁</button>

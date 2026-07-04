@@ -9,7 +9,7 @@ import {
   getAuth, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
-  getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp
+  getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDoc
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
 import { awardGameReward } from "./gamocoin.js";
@@ -176,8 +176,7 @@ async function maybeResolveRound() {
     // Warte kurz auf den Gegner-Klick, falls er noch unterwegs ist (max 2.5s)
     clearTimeout(roundTimer);
     roundTimer = setTimeout(async () => {
-      const snap = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js")
-        .then(m => m.getDoc(roomRef));
+      const snap = await getDoc(roomRef);
       const data = snap.data();
       const theirsLate = data.roundClicks?.[oppUid];
       if (theirsLate && myUid < oppUid) {
@@ -212,6 +211,7 @@ async function finishRound(mine, theirs, oppUid) {
       lastRoundWinner: isFalseStart ? "false_start" : winnerUid,
       falseStartBy: falseStartUid,
       scores: newScores,
+      lastRoundClicks: room.roundClicks || {}, // für Spectator-Anzeige kurz stehen lassen
       roundClicks: {},
       status: gameFinished ? "finished" : "active",
       winner: gameFinished ? winnerUid : null

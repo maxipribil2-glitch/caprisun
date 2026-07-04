@@ -43,6 +43,13 @@ let betHistory = []; // für undo
 // z.B. roulette.html?table=vip einen zweiten Tisch parallel laufen lassen, ohne dass
 // sich alle den gleichen Tisch teilen müssen.
 const TABLE_ID = new URLSearchParams(window.location.search).get("table") || "main";
+const tableSelectEl = document.getElementById("table-select");
+if (tableSelectEl) {
+  tableSelectEl.value = TABLE_ID;
+  tableSelectEl.addEventListener("change", () => {
+    window.location.href = "roulette.html?table=" + encodeURIComponent(tableSelectEl.value);
+  });
+}
 let tableRef = null;
 let tableUnsub = null;
 let currentPhase = "betting"; // betting | spinning | result

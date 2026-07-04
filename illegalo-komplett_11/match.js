@@ -19,7 +19,45 @@ const MAX_CHAT = 20;
  * myName:  eigener Anzeigename
  * onRematch: callback wenn beide Rematch bestätigt haben (wird von Spiel-Datei übergeben)
  */
+// MAP FEATURE: Presence-Heartbeat für alle 1v1-Games. Jeder Client schreibt alle
+// 8 Sekunden seinen eigenen "lastActive"-Timestamp. Wenn der Timestamp vom Gegner
+// älter als 20s ist (Tab im Hintergrund, Handy eingeschlafen, Verbindung weg),
+// zeigt initMatch automatisch ein "⏸️ Gegner inaktiv..."-Badge, statt dass man nur
+// rätselt warum sich nix mehr bewegt.
+const INACTIVE_THRESHOLD_MS = 20_000;
+
+function ensureInactivityBadge() {
+  let el = document.getElementById("inactivity-badge");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "inactivity-badge";
+    el.style.cssText = "position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;z-index:60;display:none;";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
 export function initMatch({ roomRef, myUid, myName, onRematch }) {
+  const badge = ensureInactivityBadge();
+  updateDoc(roomRef, { [`lastActive.${myUid}`]: Date.now() }).catch(() => {});
+  const heartbeat = setInterval(() => {
+    updateDoc(roomRef, { [`lastActive.${myUid}`]: Date.now() }).catch(() => {});
+  }, 8000);
+  window.addEventListener("beforeunload", () => clearInterval(heartbeat));
+
+  onSnapshot(roomRef, snap => {
+    if (!snap.exists()) return;
+    const room = snap.data();
+    const oppUid = (room.players || []).find(p => p !== myUid);
+    const oppLastActive = room.lastActive?.[oppUid] || 0;
+    if (oppUid && room.status === "active" && Date.now() - oppLastActive > INACTIVE_THRESHOLD_MS) {
+      badge.textContent = "⏸️ " + (room.playerNames?.[oppUid] || "Gegner") + " ist grad inaktiv...";
+      badge.style.display = "block";
+    } else {
+      badge.style.display = "none";
+    }
+  });
+
   // ── Chat ──
   const chatInputEl = document.getElementById("chat-input");
   const chatMessagesEl = document.getElementById("chat-messages");
