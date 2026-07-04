@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Flappy</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+(function(){
+  if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light");
+})();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){
+    btn.textContent = isLight ? "🌙" : "☀️";
+  });
+};
+</script>
+<div class="wrap" style="max-width:460px;">
+
+  <div class="topbar">
+    <div class="page-title" style="font-size:17px;"><span class="accent-dot" style="background:var(--bl);"></span>Flappy</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+
+  <div class="panel center">
+    <canvas class="game-canvas" id="flappy-canvas" width="360" height="480" style="cursor:pointer;"></canvas>
+    <div class="game-hud">
+      <span id="score">Score: 0</span>
+      <span id="best">Dein Best: —</span>
+    </div>
+    <div id="status" style="margin-bottom:8px;">Tippen / Klicken / Leertaste zum Starten & Fliegen</div>
+    <button id="restart-btn" class="hidden">Nochmal</button>
+    <div class="hint">Tippen, Klicken oder Leertaste — jeder Tap = ein Flap.</div>
+  </div>
+
+  <div class="panel">
+    <h2>🏆 Top 5</h2>
+    <ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul>
+  </div>
+
+  <div class="shop-ad" id="shop-ad"></div>
+
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0
+<style>.hidden{display:none;}</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="flappy.js"></script>
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>

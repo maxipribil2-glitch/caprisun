@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Bilanz</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+// MAP — GC Dark/Light persistenz, läuft synchron vor CSS render
+(function(){
+  if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light");
+})();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){
+    btn.textContent = isLight ? "🌙" : "☀️";
+  });
+};
+</script>
+<div class="wrap" style="max-width:520px;">
+
+  <div class="topbar">
+    <div class="page-title" style="font-size:14px;"><span class="accent-dot" style="background:var(--gr);"></span>Bilanz</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Zur Lobby</button>
+  </div>
+
+  <div class="shop-ad" id="shop-ad"></div>
+
+  <div class="panel" style="padding:.7rem;">
+    <div class="row" style="gap:8px;flex-wrap:wrap;">
+      <button class="period-btn on" data-period="all">Gesamt</button>
+      <button class="period-btn" data-period="month">Dieser Monat</button>
+      <button class="period-btn" data-period="week">Diese Woche</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>⚡ ELO-Rangliste</h2>
+    <div style="font-size:13px;color:var(--mu);margin-bottom:10px;">Echte Wertung — Siege gegen starke Gegner geben mehr Punkte. Start: 1000 ELO.</div>
+    <ul class="leaderboard" id="elo-list"><li class="empty">Lade...</li></ul>
+  </div>
+
+  <div class="panel">
+    <h2>🏆 Gesamtwertung</h2>
+    <ul class="leaderboard" id="overall-list"><li class="empty">Lade...</li></ul>
+  </div>
+
+  <div class="panel">
+    <h2>🎮 Pro Spiel</h2>
+    <div id="per-game"></div>
+  </div>
+
+  <div class="panel">
+    <h2>📜 Letzte Matches</h2>
+    <ul class="leaderboard" id="recent-list"><li class="empty">Lade...</li></ul>
+  </div>
+
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.5
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="stats.js"></script>
+</body>
+</html>
