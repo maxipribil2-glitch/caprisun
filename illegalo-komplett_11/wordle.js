@@ -99,6 +99,7 @@ async function finishGame(attempts) {
     if (attempts) {
       await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "wordle", score: attempts, at: serverTimestamp() });
       await awardGameReward(myUid, Math.max(50, 500 - (attempts-1)*80), "wordle_score");
+      sfx.coin ? sfx.coin() : null;
       loadLeaderboard();
     }
   } catch (e) {}

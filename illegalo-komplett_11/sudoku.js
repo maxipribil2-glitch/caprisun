@@ -1,5 +1,5 @@
-// MAP — Sudoku. Feste Puzzle-Basis (selbst generiert per Digit-Shuffle), 45 Zellen
-// entfernt für mittleren Schwierigkeitsgrad. Max 3 Fehler, Coins nach Zeit+Fehlern.
+// MAP — Sudoku Solo. Eigener Generator (Backtracking-Solver + zufällige Zellen
+// entfernen je nach Schwierigkeit), kein externes API nötig. Coins nach Zeit+Level.
 import { app } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
@@ -8,39 +8,17 @@ import { sfx } from "./sfx.js";
 import { awardGameReward } from "./gamocoin.js";
 
 const auth = getAuth(app), db = getFirestore(app);
-
-const SOLVED_BASE = [
-  [5,3,4,6,7,8,9,1,2],[6,7,2,1,9,5,3,4,8],[1,9,8,3,4,2,5,6,7],
-  [8,5,9,7,6,1,4,2,3],[4,2,6,8,5,3,7,9,1],[7,1,3,9,2,4,8,5,6],
-  [9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]
-];
-
-function shuffleDigits(grid) {
-  const perm = [1,2,3,4,5,6,7,8,9].sort(() => Math.random()-0.5);
-  return grid.map(row => row.map(v => perm[v-1]));
-}
-
-function makePuzzle(removeCount) {
-  const solution = shuffleDigits(SOLVED_BASE);
-  const puzzle = solution.map(row => [...row]);
-  let removed = 0;
-  while (removed < removeCount) {
-    const r = Math.floor(Math.random()*9), c = Math.floor(Math.random()*9);
-    if (puzzle[r][c] !== 0) { puzzle[r][c] = 0; removed++; }
-  }
-  return { puzzle, solution };
-}
-
 const gridEl = document.getElementById("sudoku-grid");
 const padEl = document.getElementById("number-pad");
 const timerEl = document.getElementById("timer");
-const mistakesEl = document.getElementById("mistakes");
+const diffLabelEl = document.getElementById("difficulty-label");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart-btn");
 const leaveBtn = document.getElementById("leave-btn");
 renderShopAd("shop-ad");
 
-let myUid, myName, puzzle, solution, given, userGrid, selected, mistakes, startTime, timerInterval, ended;
+const DIFFICULTIES = { easy: { holes: 30, label: "Leicht", mult: 1 }, medium: { holes: 45, label: "Mittel", mult: 1.6 }, hard: { holes: 55, label: "Schwer", mult: 2.4 } };
+let myUid, myName, solution, puzzle, fixedCells, selectedCell, difficulty = "easy", startTime, timerInterval, ended;
 
 onAuthStateChanged(auth, (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
@@ -48,38 +26,77 @@ onAuthStateChanged(auth, (user) => {
   loadLeaderboard(); startGame();
 });
 
-function startGame() {
-  clearInterval(timerInterval);
-  const { puzzle: p, solution: s } = makePuzzle(45);
-  puzzle = p; solution = s;
-  given = p.map(row => row.map(v => v !== 0));
-  userGrid = p.map(row => [...row]);
-  selected = null; mistakes = 0; startTime = null; ended = false;
-  mistakesEl.textContent = "❌ 0/3"; timerEl.textContent = "⏱️ 0s"; statusEl.textContent = "Zahl im Grid wählen, dann Ziffer eingeben";
-  restartBtn.classList.add("hidden");
-  renderGrid(); renderPad();
+function generateSolved() {
+  const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+  function valid(r, c, v) {
+    for (let i = 0; i < 9; i++) if (grid[r][i] === v || grid[i][c] === v) return false;
+    const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (grid[br+i][bc+j] === v) return false;
+    return true;
+  }
+  function fill(pos) {
+    if (pos === 81) return true;
+    const r = Math.floor(pos/9), c = pos%9;
+    const nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
+    for (const v of nums) {
+      if (valid(r, c, v)) {
+        grid[r][c] = v;
+        if (fill(pos+1)) return true;
+        grid[r][c] = 0;
+      }
+    }
+    return false;
+  }
+  fill(0);
+  return grid;
 }
 
-function renderGrid() {
+function makePuzzle(solved, holes) {
+  const puzzle = solved.map(row => [...row]);
+  let removed = 0;
+  const cells = [...Array(81).keys()].sort(() => Math.random() - 0.5);
+  for (const pos of cells) {
+    if (removed >= holes) break;
+    const r = Math.floor(pos/9), c = pos%9;
+    puzzle[r][c] = 0;
+    removed++;
+  }
+  return puzzle;
+}
+
+function startGame() {
+  clearInterval(timerInterval);
+  solution = generateSolved();
+  puzzle = makePuzzle(solution, DIFFICULTIES[difficulty].holes);
+  fixedCells = puzzle.map(row => row.map(v => v !== 0));
+  selectedCell = null; startTime = null; ended = false;
+  timerEl.textContent = "⏱️ 0s"; diffLabelEl.textContent = DIFFICULTIES[difficulty].label;
+  statusEl.textContent = ""; restartBtn.classList.add("hidden");
+  render(); renderPad();
+}
+
+function render() {
   gridEl.innerHTML = "";
-  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
     const cell = document.createElement("div");
-    let cls = "sudoku-cell";
-    if (given[r][c]) cls += " given";
-    if (selected && selected.r===r && selected.c===c) cls += " selected";
-    if (!given[r][c] && userGrid[r][c] !== 0 && userGrid[r][c] !== solution[r][c]) cls += " wrong";
-    cell.className = cls;
-    cell.style.borderRight = (c+1)%3===0 && c<8 ? "2px solid #1a1c26" : "";
-    cell.style.borderBottom = (r+1)%3===0 && r<8 ? "2px solid #1a1c26" : "";
-    cell.textContent = userGrid[r][c] || "";
-    if (!given[r][c]) cell.addEventListener("click", () => { selected = {r,c}; renderGrid(); });
+    cell.className = "sudoku-cell" + (fixedCells[r][c] ? " fixed" : "") + (selectedCell?.r===r && selectedCell?.c===c ? " selected" : "");
+    if (r%3===0) cell.style.borderTop = "2px solid #1a1c26";
+    if (c%3===0) cell.style.borderLeft = "2px solid #1a1c26";
+    if (r===8) cell.style.borderBottom = "2px solid #1a1c26";
+    if (c===8) cell.style.borderRight = "2px solid #1a1c26";
+    const v = puzzle[r][c];
+    if (v) {
+      cell.textContent = v;
+      if (!fixedCells[r][c] && v !== solution[r][c]) cell.classList.add("wrong");
+    }
+    if (!fixedCells[r][c]) cell.addEventListener("click", () => { selectedCell = { r, c }; render(); });
     gridEl.appendChild(cell);
   }
 }
 
 function renderPad() {
   padEl.innerHTML = "";
-  for (let n=1;n<=9;n++) {
+  for (let n = 1; n <= 9; n++) {
     const btn = document.createElement("button");
     btn.className = "num-btn"; btn.textContent = n;
     btn.addEventListener("click", () => placeNumber(n));
@@ -88,54 +105,40 @@ function renderPad() {
 }
 
 function placeNumber(n) {
-  if (!selected || ended) return;
-  if (!startTime) { startTime = Date.now(); timerInterval = setInterval(tick, 1000); }
-  const { r, c } = selected;
-  userGrid[r][c] = n;
+  if (!selectedCell || ended) return;
+  if (!startTime) { startTime = Date.now(); timerInterval = setInterval(() => { timerEl.textContent = "⏱️ " + Math.floor((Date.now()-startTime)/1000) + "s"; }, 250); }
+  puzzle[selectedCell.r][selectedCell.c] = n;
   sfx.move ? sfx.move() : null;
-  if (n !== solution[r][c]) {
-    mistakes++;
-    mistakesEl.textContent = "❌ " + mistakes + "/3";
-    sfx.hit ? sfx.hit() : null;
-    if (mistakes >= 3) return failGame();
-  }
-  renderGrid();
-  checkWin();
+  render();
+  checkComplete();
 }
 
-function checkWin() {
-  const solved = userGrid.every((row,r) => row.every((v,c) => v === solution[r][c]));
-  if (solved) finishGame();
-}
-
-function tick() {
-  if (!startTime) return;
-  timerEl.textContent = "⏱️ " + Math.floor((Date.now()-startTime)/1000) + "s";
+function checkComplete() {
+  const isFull = puzzle.every(row => row.every(v => v !== 0));
+  if (!isFull) return;
+  const isCorrect = puzzle.every((row, r) => row.every((v, c) => v === solution[r][c]));
+  if (isCorrect) finishGame();
 }
 
 async function finishGame() {
   ended = true;
   clearInterval(timerInterval);
-  const seconds = Math.floor((Date.now()-startTime)/1000);
-  statusEl.textContent = `🎉 Gelöst in ${seconds}s mit ${mistakes} Fehlern!`;
+  const seconds = Math.floor((Date.now() - startTime) / 1000);
+  statusEl.textContent = `🎉 Gelöst in ${seconds}s (${DIFFICULTIES[difficulty].label})!`;
   restartBtn.classList.remove("hidden");
   sfx.win ? sfx.win() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "sudoku", score: seconds, at: serverTimestamp() });
-    await awardGameReward(myUid, Math.max(50, 500 - Math.floor(seconds/2) - mistakes*40), "sudoku_score");
+    const base = Math.max(20, 500 - seconds * 2);
+    await awardGameReward(myUid, Math.min(Math.round(base * DIFFICULTIES[difficulty].mult), 500), "sudoku_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }
 
-function failGame() {
-  ended = true;
-  clearInterval(timerInterval);
-  statusEl.textContent = "3 Fehler erreicht — Game Over!";
-  restartBtn.classList.remove("hidden");
-  sfx.lose ? sfx.lose() : null;
-  renderGrid();
-}
-
+["easy","medium","hard"].forEach(key => {
+  document.getElementById("difficulty-" + key).addEventListener("click", () => { difficulty = key; startGame(); });
+});
 restartBtn.addEventListener("click", startGame);
 leaveBtn.addEventListener("click", () => { clearInterval(timerInterval); window.location.href = "lobby.html"; });
 

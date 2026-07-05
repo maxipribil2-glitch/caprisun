@@ -492,6 +492,9 @@ onAuthStateChanged(auth, (user) => {
   whoEl.innerHTML = `eingeloggt als <span>${myName}</span>`;
   // MaxiCoins balance
   getBalance(myUid).then(coins => {
+    if (!sessionStorage.getItem("gc_session_start_balance")) {
+      sessionStorage.setItem("gc_session_start_balance", String(coins));
+    }
     const el = document.getElementById("lobby-coins");
     if (el) el.textContent = formatCoins(coins);
   });
@@ -793,6 +796,21 @@ function listenMySentInvites() {
 }
 
 logoutBtn.addEventListener("click", async () => {
+  // MAP FEATURE (Punkt 4): Session-Recap vor dem Logout — Coins verdient wird aus
+  // der Differenz zur Start-Balance beim Login berechnet (robuster als nen eigener
+  // Zähler den man an jeder Coin-Vergabe-Stelle im ganzen Projekt hätte pflegen müssen).
+  const startBalance = parseInt(sessionStorage.getItem("gc_session_start_balance") || "0");
+  const matchesPlayed = parseInt(sessionStorage.getItem("gc_session_matches") || "0");
+  try {
+    const currentBalance = await getBalance(myUid);
+    const coinsEarned = Math.max(0, currentBalance - startBalance);
+    if (coinsEarned > 0 || matchesPlayed > 0) {
+      showToast(`👋 Session-Recap: ${matchesPlayed} Spiele geöffnet, ${coinsEarned} 🪙 verdient!`);
+      await new Promise(r => setTimeout(r, 1600));
+    }
+  } catch (e) {}
+  sessionStorage.removeItem("gc_session_start_balance");
+  sessionStorage.removeItem("gc_session_matches");
   if (myUid) {
     await set(ref(rtdb, "status/" + myUid), { state: "offline", username: myName, last_changed: rtdbTimestamp() });
   }

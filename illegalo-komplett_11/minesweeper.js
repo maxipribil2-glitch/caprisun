@@ -146,6 +146,7 @@ async function submitResult(seconds) {
     // Coins: je schneller desto mehr. 500 Coins bei <=30s, linear runter, min 20 Coins.
     const coinAmount = Math.max(20, Math.round(500 - (seconds - 30) * 4));
     await awardGameReward(myUid, coinAmount, "minesweeper_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }

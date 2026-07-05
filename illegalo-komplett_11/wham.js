@@ -60,8 +60,17 @@ function popMole() {
   }, 700 + Math.random()*300);
 }
 
+// MAP FIX (Punkt 3): 80ms Cooldown zwischen zwei Treffern generell, damit Auto-
+// Clicker-Scripts nicht unrealistisch viele Treffer in kurzer Zeit farmen können —
+// ein Mensch klickt eh nicht schneller als das, kein Nachteil für normale Spieler.
+let lastHitAt = 0;
+const HIT_COOLDOWN_MS = 80;
+
 function hitMole(i) {
   if (!started || ended || i !== activeHole) return;
+  const now = Date.now();
+  if (now - lastHitAt < HIT_COOLDOWN_MS) return;
+  lastHitAt = now;
   score++;
   scoreEl.textContent = "Treffer: " + score;
   sfx.hit ? sfx.hit() : null;
@@ -86,6 +95,7 @@ async function endGame() {
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "wham", score, at: serverTimestamp() });
     await awardGameReward(myUid, Math.min(score*15, 500), "wham_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }

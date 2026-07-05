@@ -76,6 +76,7 @@ async function finishGame() {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "memory", score: moves, at: serverTimestamp() });
     const coinAmount = Math.max(20, Math.round(500 - (moves - 8) * 25));
     await awardGameReward(myUid, coinAmount, "memory_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }

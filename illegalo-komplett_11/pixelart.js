@@ -100,6 +100,7 @@ async function endGame() {
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "pixelart", score: pct, at: serverTimestamp() });
     await awardGameReward(myUid, Math.min(pct*5, 500), "pixelart_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }

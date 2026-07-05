@@ -220,7 +220,7 @@ async function stepPhysics() {
       // anderen Ball überlappt, statt immer stur den exakt gleichen Fixpunkt zu
       // nehmen — verhindert dass der weiße Ball direkt "in" nem anderen spawnt.
       let rx = W*0.25, ry = H/2, tries = 0;
-      while (tries < 10 && balls.some(b => b.id !== "cue" && !b.pocketed && Math.hypot(b.x-rx, b.y-ry) < BALL_R*2.2)) {
+      while (tries < 10 && balls.some(b => b.id !== "cue" && !b.pocketed && Math.hypot(b.x-rx, b.y-ry) < R*2.2)) {
         ry = H/2 + (Math.random()-0.5) * 40; tries++;
       }
       cue.x = rx; cue.y = ry; cue.vx = 0; cue.vy = 0;

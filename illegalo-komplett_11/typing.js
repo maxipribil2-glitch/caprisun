@@ -90,6 +90,7 @@ async function endGame() {
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "typing", score: wpm, at: serverTimestamp() });
     await awardGameReward(myUid, Math.min(Math.round(wpm * (accuracy/100) * 6), 500), "typing_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }

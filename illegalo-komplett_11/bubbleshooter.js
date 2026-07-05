@@ -112,8 +112,12 @@ function findCluster(r, c, color) {
     visited.add(key);
     if (grid[cr]?.[cc] !== color) continue;
     result.push([cr,cc]);
-    const offset = cr % 2 === 1 ? 1 : -1;
-    [[cr,cc-1],[cr,cc+1],[cr-1,cc],[cr-1,cc+offset],[cr+1,cc],[cr+1,cc+offset]].forEach(([nr,nc]) => {
+    // MAP FIX (Bug 2): Nachbar-Offset für ungerade/gerade Reihen war inkonsistent
+    // zur tatsächlichen Hex-Grid-Position aus cellPos() — bei ungeraden Reihen ist
+    // der Offset nach RECHTS verschoben (+R), heißt die diagonalen Nachbarn liegen
+    // bei col UND col+1 (nicht col-1 bei geraden Reihen wie vorher angenommen).
+    const diag = cr % 2 === 1 ? [0, 1] : [-1, 0];
+    [[cr,cc-1],[cr,cc+1],[cr-1,cc+diag[0]],[cr-1,cc+diag[1]],[cr+1,cc+diag[0]],[cr+1,cc+diag[1]]].forEach(([nr,nc]) => {
       if (nr>=0 && nr<ROWS && nc>=0 && nc<COLS) stack.push([nr,nc]);
     });
   }
@@ -167,6 +171,7 @@ async function gameOver() {
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "bubbleshooter", score, at: serverTimestamp() });
     await awardGameReward(myUid, Math.min(score, 500), "bubbleshooter_score");
+    sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {}
 }

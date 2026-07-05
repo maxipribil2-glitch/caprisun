@@ -44,12 +44,35 @@ function ensureBadge() {
   return el;
 }
 
+// MAP FEATURE (Punkt 5): Coin-Badge zählt animiert hoch/runter statt instant zu
+// springen — kleiner Polish-Effekt, macht Coin-Änderungen visuell greifbarer.
+let displayedCoins = null;
+let animFrame = null;
+function animateCoinsTo(target, el) {
+  if (displayedCoins === null) { displayedCoins = target; el.textContent = "💰 " + target; return; }
+  cancelAnimationFrame(animFrame);
+  const start = displayedCoins;
+  const diff = target - start;
+  if (diff === 0) return;
+  const duration = Math.min(800, Math.max(250, Math.abs(diff) * 4));
+  const startTime = performance.now();
+  function step(now) {
+    const progress = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out
+    displayedCoins = Math.round(start + diff * eased);
+    el.textContent = "💰 " + displayedCoins;
+    if (progress < 1) animFrame = requestAnimationFrame(step);
+    else displayedCoins = target;
+  }
+  animFrame = requestAnimationFrame(step);
+}
+
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
   const el = ensureBadge();
   el.textContent = "💰 ...";
   onSnapshot(doc(db, "users", user.uid), (snap) => {
     const coins = snap.exists() ? (snap.data().gamocoins ?? 0) : 0;
-    el.textContent = "💰 " + coins;
+    animateCoinsTo(coins, el);
   });
 });
