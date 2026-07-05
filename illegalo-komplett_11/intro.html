@@ -18,6 +18,27 @@
   .blink{animation:blink 1s steps(2) infinite;}
   @keyframes blink{50%{opacity:0;}}
 </style>
+<script type="module">
+// MAP — Daily Bonus wird jetzt automatisch beim Login gecheckt & gecrabbt, kein
+// manueller Button-Klick auf Roulette mehr nötig. Der 24h-Timestamp-Check in
+// claimDailyBonus() verhindert Doppel-Vergabe falls später trotzdem nochmal auf
+// Roulette der Button gedrückt wird — dann kommt einfach "zu früh" zurück.
+import { app } from "./firebase-config.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { claimDailyBonus } from "./gamocoin.js";
+
+const auth = getAuth(app);
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  const res = await claimDailyBonus(user.uid);
+  if (res.claimed) {
+    // Wird als sessionStorage-Flag gespeichert, damit die Lobby direkt danach nen
+    // Toast zeigen kann ("🎁 Daily Bonus abgeholt! +1000 🪙") statt dass es hier
+    // im Intro-Screen ungesehen verpufft.
+    sessionStorage.setItem("gc_daily_bonus_claimed", String(res.amount));
+  }
+});
+</script>
 </head>
 <body>
 

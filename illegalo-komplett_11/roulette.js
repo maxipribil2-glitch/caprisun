@@ -1,6 +1,6 @@
-// MAP — Roulette 🎰 European/American, Live-Multiplayer, GamoCoin-Integration
+// MAP — Roulette 🎰 European/American, Live-Multiplayer, MaxiCoin-Integration
 // Firestore: rouletteTables/{tableId} — shared state (phase/result/bets/timer)
-// GamoCoin deduct beim Wetten, payout bei Gewinn, onSnapshot synced für alle Spieler
+// MaxiCoin deduct beim Wetten, payout bei Gewinn, onSnapshot synced für alle Spieler
 import { app } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {

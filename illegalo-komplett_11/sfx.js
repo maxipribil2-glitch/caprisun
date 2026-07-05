@@ -43,4 +43,7 @@ export const sfx = {
   win:   () => { beep(523, 0.12); setTimeout(() => beep(659, 0.12), 110); setTimeout(() => beep(784, 0.2), 220); },
   lose:  () => { beep(330, 0.15); setTimeout(() => beep(220, 0.22), 140); },
   draw:  () => beep(330, 0.2),
+  // MAP: eigener "Cha-Ching"-Sound für Coin-Drops (Coin Rush, Idle-Clicker) statt
+  // dem generischen sfx.hit() — zwei schnelle helle Töne, klingt nach Kasse/Münze.
+  coin:  () => { beep(1046, 0.05, "square", 0.1); setTimeout(() => beep(1568, 0.07, "square", 0.1), 60); },
 };

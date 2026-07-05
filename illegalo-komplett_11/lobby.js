@@ -1,7 +1,7 @@
 // MAP — lobby logic: who's online (Realtime Database presence, instant onDisconnect) + invites (Firestore)
 import { app } from "./firebase-config.js";
 import { renderShopAd } from "./ads.js";
-import { getBalance, formatCoins } from "./gamocoin.js";
+import { getBalance, formatCoins, claimDailyBonus } from "./gamocoin.js";
 import { toggleLang, applyLang } from "./i18n.js";
 window._toggleLang = toggleLang;
 applyLang();
@@ -21,6 +21,24 @@ const rtdb = getDatabase(app);
 const db = getFirestore(app);
 
 // games available on the platform — add more here as you build them
+// MAP FEATURE (Punkt 4): Games werden nach "zuletzt gespielt" sortiert statt fester
+// Reihenfolge. localStorage speichert Timestamps pro Game-ID, aktualisiert bei jedem
+// Start. Games die noch nie gespielt wurden, bleiben in der Original-Reihenfolge
+// hinten dran.
+function trackGamePlayed(gameId) {
+  try {
+    const data = JSON.parse(localStorage.getItem("illegalo_gc_recent") || "{}");
+    data[gameId] = Date.now();
+    localStorage.setItem("illegalo_gc_recent", JSON.stringify(data));
+  } catch (e) {}
+}
+function sortByRecent(list) {
+  let recent = {};
+  try { recent = JSON.parse(localStorage.getItem("illegalo_gc_recent") || "{}"); } catch (e) {}
+  return [...list].sort((a, b) => (recent[b.id] || 0) - (recent[a.id] || 0));
+}
+window._trackGamePlayed = trackGamePlayed; // von Game-Seiten aus aufrufbar falls gewünscht
+
 const GAMES = [
   { id: "tictactoe", name: "Tic-Tac-Toe" },
   { id: "snakeio", name: "Snake.io (1v1)" },
@@ -36,7 +54,12 @@ const GAMES = [
   { id: "bomberman", name: "Bomber-Arena (1v1)" },
   { id: "artillery", name: "Artillery-Duell (1v1)" },
   { id: "rps", name: "Schere Stein Papier (1v1)" },
-  { id: "checkers", name: "Dame (1v1)" }
+  { id: "checkers", name: "Dame (1v1)" },
+  { id: "guesswho", name: "Errate-Wer (1v1)" },
+  { id: "pool", name: "Pool-Duell (1v1)" },
+  { id: "towerdefense", name: "Tower-Defense-Duell (1v1)" },
+  { id: "pool", name: "Billard-Duell (1v1)" },
+  { id: "guesswho", name: "Errate-Wer (1v1)" }
 ];
 
 // solo arcade games — no invite needed, just play directly
@@ -54,6 +77,12 @@ const ARCADE_GAMES = [
   { id: "wordle", name: "Wörterrätsel", icon: "📝", page: "wordle.html" },
   { id: "simon", name: "Simon Says", icon: "🎯", page: "simon.html" },
   { id: "typing", name: "Speed-Typing", icon: "⌨️", page: "typing.html" },
+  { id: "sudoku", name: "Sudoku", icon: "🔢", page: "sudoku.html" },
+  { id: "clicker", name: "Coin Clicker", icon: "🪙", page: "clicker.html" },
+  { id: "pixelart", name: "Pixel-Art-Painter", icon: "🎨", page: "pixelart.html" },
+  { id: "slithersolo", name: "Slither Solo", icon: "🟢", page: "slithersolo.html" },
+  { id: "wham", name: "Whack-a-Mole", icon: "🐹", page: "wham.html" },
+  { id: "bubbleshooter", name: "Bubble Shooter", icon: "🔵", page: "bubbleshooter.html" },
 ];
 
 const SNAKEIO_GRID = 20;
@@ -81,6 +110,7 @@ function randomFoodCell(grid, occupied) {
 }
 
 function gamePage(gameId) {
+  trackGamePlayed(gameId);
   if (gameId === "snakeio") return "snakeio.html";
   if (gameId === "katapult") return "katapult.html";
   if (gameId === "connect4") return "connect4.html";
@@ -95,6 +125,10 @@ function gamePage(gameId) {
   if (gameId === "artillery") return "artillery.html";
   if (gameId === "rps") return "rps.html";
   if (gameId === "checkers") return "checkers.html";
+  if (gameId === "guesswho") return "guesswho.html";
+  if (gameId === "pool") return "pool.html";
+  if (gameId === "towerdefense") return "towerdefense.html";
+  if (gameId === "guesswho") return "guesswho.html";
   return "game.html";
 }
 
@@ -194,6 +228,15 @@ function buildRoomData(inv) {
   if (inv.game === "airhockey") {
     return { ...base, puck: null, scoreTop: 0, scoreBottom: 0 };
   }
+  if (inv.game === "guesswho") {
+    return { ...base, secrets: null, round: 0, scores: { [inv.from]: 0, [inv.to]: 0 }, guesses: {}, roundResolved: false, roundStartAt: Date.now() };
+  }
+  if (inv.game === "pool") {
+    return { ...base, balls: null, turn: inv.from, potted: {}, shootingBy: null };
+  }
+  if (inv.game === "towerdefense") {
+    return { ...base, lanes: null };
+  }
   if (inv.game === "bomberman") {
     return { ...base, grid: null, pos: null, bombs: [], alive: null };
   }
@@ -236,11 +279,57 @@ GAMES.forEach(g => {
 });
 
 const arcadeGridEl = document.getElementById("arcade-grid");
-if (arcadeGridEl) {
-  arcadeGridEl.innerHTML = ARCADE_GAMES.map(g =>
-    `<a class="arcade-card" href="${g.page}"><span class="arcade-icon">${g.icon}</span><span class="arcade-name">${g.name}</span></a>`
-  ).join("");
+let arcadeFilter = "all"; // MAP FEATURE (Punkt 1): "all" | "solo" | "1v1"
+
+function renderArcadeGrid() {
+  if (!arcadeGridEl) return;
+  const sortedArcade = sortByRecent(ARCADE_GAMES);
+  const sortedOnline1v1 = sortByRecent(GAMES); // nur zur Anzeige im "1v1"-Filter unten
+  let html = "";
+  if (arcadeFilter === "all" || arcadeFilter === "solo") {
+    html += sortedArcade.map(g =>
+      `<a class="arcade-card" href="${g.page}"><span class="arcade-icon">${g.icon}</span><span class="arcade-name">${g.name}</span></a>`
+    ).join("");
+  }
+  arcadeGridEl.innerHTML = html;
+  // "1v1"-Filter zeigt hier nur einen Hinweis, weil 1v1-Games über den Game-Select
+  // (Invite-System) laufen, nicht über direkte Links wie die Solo-Arcade-Karten.
+  if (arcadeFilter === "1v1") {
+    arcadeGridEl.innerHTML = `<div class="empty" style="grid-column:1/-1;">1v1-Games wählst du oben im Dropdown "Spiel wählen" + Invite senden.</div>`;
+  }
 }
+
+document.querySelectorAll(".arcade-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".arcade-filter-btn").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    arcadeFilter = btn.dataset.filter;
+    renderArcadeGrid();
+  });
+});
+renderArcadeGrid();
+
+// MAP FEATURE (Punkt 6): "Spiel des Tages" — deterministisch nach Kalendertag
+// gewählt (gleicher Tag = gleiches Spiel für alle), damit nicht immer nur die
+// gleichen 3-4 Games gespielt werden.
+function renderGameOfTheDay() {
+  const allGames = [...ARCADE_GAMES.map(g => ({...g, kind:"solo"})), ...GAMES.map(g => ({...g, page: gamePage(g.id), icon:"⚔️", kind:"1v1"}))];
+  const dayIndex = Math.floor(Date.now() / 86400000) % allGames.length;
+  const pick = allGames[dayIndex];
+  const panel = document.getElementById("daily-bonus-panel");
+  if (!panel) return;
+  const banner = document.createElement("div");
+  banner.style.cssText = "margin-top:8px;padding:8px 10px;background:#1e3a8a;border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;";
+  banner.innerHTML = `<span>${pick.icon||"🎮"} Heute empfohlen: <strong>${pick.name}</strong></span>`;
+  if (pick.kind === "solo") {
+    const link = document.createElement("a");
+    link.href = pick.page; link.textContent = "Spielen →";
+    link.style.cssText = "color:#f59e0b;font-weight:bold;white-space:nowrap;";
+    banner.appendChild(link);
+  }
+  panel.appendChild(banner);
+}
+renderGameOfTheDay();
 
 renderShopAd("shop-ad");
 
@@ -401,7 +490,7 @@ onAuthStateChanged(auth, (user) => {
   myUid = user.uid;
   myName = user.displayName || user.email;
   whoEl.innerHTML = `eingeloggt als <span>${myName}</span>`;
-  // GamoCoins balance
+  // MaxiCoins balance
   getBalance(myUid).then(coins => {
     const el = document.getElementById("lobby-coins");
     if (el) el.textContent = formatCoins(coins);
@@ -412,6 +501,16 @@ onAuthStateChanged(auth, (user) => {
   listenIncomingInvites();
   listenMySentInvites();
   listenLiveMatches();
+  loadDailyBonusPanel();
+  checkForChangelogUpdate();
+
+  // MAP: falls der Daily Bonus grad im intro.html-Flow automatisch geclaimt wurde,
+  // zeigen wir hier den Toast, sobald die Lobby geladen ist.
+  const claimedAmount = sessionStorage.getItem("gc_daily_bonus_claimed");
+  if (claimedAmount) {
+    sessionStorage.removeItem("gc_daily_bonus_claimed");
+    setTimeout(() => showToast(`🎁 Daily Bonus abgeholt! +${claimedAmount} 🪙`), 400);
+  }
   listenActiveRooms();
   requestNotifPermission();
 });
@@ -529,6 +628,62 @@ const notifiedInviteIds = new Set();
 // MAP FEATURE: Live-Match-Banner. Zeigt alle laufenden Matches (status:"active")
 // in der Lobby an, mit direktem Spectate-Link. Text passt sich automatisch am
 // Game-Namen an: "username spielt gerade gegen username Schach! Schau live zu!"
+async function loadDailyBonusPanel() {
+  const contentEl = document.getElementById("daily-bonus-content");
+  if (!contentEl || !myUid) return;
+  try {
+    const { getDoc, doc: docRef } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js");
+    const snap = await getDoc(docRef(db, "users", myUid));
+    const lastBonus = snap.exists() ? (snap.data().lastDailyBonus?.toMillis?.() || 0) : 0;
+    const now = Date.now();
+    const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
+    const available = now - lastBonus >= TWENTY_FOUR_H;
+
+    if (available) {
+      contentEl.innerHTML = `<button id="claim-daily-btn">🎁 1000 Coins abholen</button>`;
+      document.getElementById("claim-daily-btn").addEventListener("click", async () => {
+        const res = await claimDailyBonus(myUid);
+        if (res.claimed) {
+          showToast(`🎁 Daily Bonus abgeholt! +${res.amount} 🪙`);
+          contentEl.innerHTML = `<div class="empty">Nächster Bonus in 24h ⏳</div>`;
+        } else if (res.reason === "too_soon") {
+          // MAP: schon automatisch beim Login geclaimt worden — kein Doppel-Claim,
+          // Button verschwindet einfach mit Hinweis statt Coins nochmal zu geben.
+          showToast(`Schon abgeholt heute! 🎁`);
+          contentEl.innerHTML = `<div class="empty">Nächster Bonus in 24h ⏳</div>`;
+        }
+      });
+    } else {
+      const hoursLeft = Math.ceil((TWENTY_FOUR_H - (now - lastBonus)) / 3600000);
+      contentEl.innerHTML = `<div class="empty">Nächster Bonus in ~${hoursLeft}h ⏳</div>`;
+    }
+  } catch (e) {
+    contentEl.innerHTML = `<div class="empty">Konnte Daily Bonus nicht laden.</div>`;
+  }
+}
+
+// MAP FEATURE (Punkt 5): einfacher Changelog-Hinweis. GC_VERSION wird bei größeren
+// Feature-Updates hochgezählt — falls die localStorage-Version älter ist, zeigt's
+// nen Banner mit Link zu changelog.html, statt dass Updates ungesehen verpuffen.
+const GC_VERSION = "2.0"; // hochzählen bei jedem größeren Update
+function checkForChangelogUpdate() {
+  const seenVersion = localStorage.getItem("illegalo_gc_seen_version");
+  if (seenVersion === GC_VERSION) return;
+  const banner = document.createElement("div");
+  banner.style.cssText = "position:fixed;bottom:16px;left:16px;right:16px;max-width:400px;margin:0 auto;background:#1e3a8a;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;z-index:90;display:flex;justify-content:space-between;align-items:center;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.4);";
+  banner.innerHTML = `<span>🆕 Neue Games & Features sind da!</span>`;
+  const btn = document.createElement("button");
+  btn.textContent = "Changelog ansehen →";
+  btn.style.cssText = "background:#f59e0b;border:none;color:#000;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap;";
+  btn.addEventListener("click", () => { window.location.href = "changelog.html"; });
+  const closeBtn = document.createElement("span");
+  closeBtn.textContent = "✕";
+  closeBtn.style.cssText = "cursor:pointer;padding:0 4px;";
+  closeBtn.addEventListener("click", () => { localStorage.setItem("illegalo_gc_seen_version", GC_VERSION); banner.remove(); });
+  banner.appendChild(btn); banner.appendChild(closeBtn);
+  document.body.appendChild(banner);
+}
+
 function listenLiveMatches() {
   const panel = document.getElementById("live-matches-panel");
   const listEl = document.getElementById("live-matches-list");

@@ -1,4 +1,4 @@
-// MAP — Zeigt den GamoCoin-Kontostand live als kleines Badge oben im Header an,
+// MAP — Zeigt den MaxiCoin-Kontostand live als kleines Badge oben im Header an,
 // nicht mehr nur bei Roulette sichtbar. Einfach in jeder Game-HTML einbinden:
 //   <div id="coin-badge" class="coin-badge"></div>
 //   <script type="module" src="coinBadge.js"></script>

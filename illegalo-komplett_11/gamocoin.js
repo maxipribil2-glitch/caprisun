@@ -1,4 +1,4 @@
-// MAP — GamoCoin System 💰
+// MAP — MaxiCoin System 💰
 // Shared module used by roulette.js, lobby.js und alle anderen Games die Coins vergeben.
 // Coins werden in Firestore gespeichert: users/{uid}.gamocoins + users/{uid}.lastDailyBonus
 // Startguthaben: 1000 beim ersten Login (gesetzt in auth.js)
@@ -75,6 +75,41 @@ export async function payout(uid, amount) {
   return await addCoins(uid, amount, "roulette_win");
 }
 
+// MAP FIX (Coin-Bug): addCoins() selbst hat KEIN Cap — für Roulette-Gewinne ist das
+// korrekt (Wetten können legit groß sein), aber Coin Rush hat den 500er-Run-Cap
+// bisher nur CLIENT-seitig gecheckt (MAX_COINS_PER_RUN in coinrush.js). Das hieß:
+// jemand könnte mit offenen DevTools addCoins() direkt mit riesigem Betrag aufrufen
+// und den Cap komplett umgehen. Diese Funktion hier ist die einzige, die Coin Rush
+// ab jetzt benutzen darf — cappt SERVER-seitig via Firestore-Transaction auf einen
+// Session-Gesamtbetrag, unabhängig davon was der Client behauptet gesammelt zu haben.
+const LIVE_DROP_SESSION_CAP = 500;
+export async function addLiveDropCoins(uid, amount, reason) {
+  const safeAmount = Math.max(0, Math.round(amount));
+  if (safeAmount <= 0) return { credited: 0 };
+  const ref = doc(db, "users", uid);
+  try {
+    const credited = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return 0;
+      const sessionTotal = snap.data().liveDropSessionTotal ?? 0;
+      const remaining = Math.max(0, LIVE_DROP_SESSION_CAP - sessionTotal);
+      const toCredit = Math.min(safeAmount, remaining);
+      if (toCredit <= 0) return 0;
+      tx.update(ref, {
+        gamocoins: increment(toCredit),
+        liveDropSessionTotal: sessionTotal + toCredit,
+        [`coinLog_${Date.now()}`]: { amount: toCredit, reason: reason || "live_drop", at: new Date().toISOString() }
+      });
+      return toCredit;
+    });
+    return { credited };
+  } catch (e) { return { credited: 0 }; }
+}
+// Session-Cap zurücksetzen (bei Game-Start aufrufen, sonst bleibt er für immer bei 500)
+export async function resetLiveDropSession(uid) {
+  try { await updateDoc(doc(db, "users", uid), { liveDropSessionTotal: 0 }); } catch (e) {}
+}
+
 // ── Gewinn-Coins aus anderen Games (Match-Siege, Highscores etc.) ──
 // Hard-gecappt bei MAX_GAME_REWARD (500), egal was reingegeben wird — verhindert
 // dass ein Game (jetzt oder in Zukunft) versehentlich/absichtlich mehr auszahlt.
@@ -121,3 +156,6 @@ export function formatCoins(n) {
   if (n >= 1_000)     return (n/1_000).toFixed(1) + "K 🪙";
   return n + " 🪙";
 }
+// MAP: Kurzform für UI-Texte wo "MaxiCoins" ausgeschrieben zu lang wär
+export const CURRENCY_NAME = "MaxiCoins";
+export const CURRENCY_SHORT = "MC";

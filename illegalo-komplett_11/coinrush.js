@@ -8,7 +8,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { renderShopAd } from "./ads.js";
 import { sfx } from "./sfx.js";
-import { addCoins } from "./gamocoin.js";
+import { addLiveDropCoins, resetLiveDropSession } from "./gamocoin.js";
 
 const auth = getAuth(app), db = getFirestore(app);
 const canvas = document.getElementById("rush-canvas");
@@ -31,7 +31,7 @@ const MAX_COINS_PER_RUN = 500;
 onAuthStateChanged(auth, (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
   myUid = user.uid; myName = user.displayName || user.email || "Spieler";
-  loadLeaderboard(); resetGame(); draw();
+  loadLeaderboard(); resetLiveDropSession(myUid); resetGame(); draw();
 });
 
 function resetGame() {
@@ -92,8 +92,8 @@ function update() {
         const amount = Math.min(5, MAX_COINS_PER_RUN - coinsCollected);
         coinsCollected += amount;
         coinsLiveEl.textContent = "💰 +" + coinsCollected;
-        addCoins(myUid, amount, "coinrush_live").catch(() => {});
-        sfx.hit ? sfx.hit() : null;
+        addLiveDropCoins(myUid, amount, "coinrush_live").catch(() => {});
+        sfx.coin ? sfx.coin() : null;
       }
       return false;
     }

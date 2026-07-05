@@ -23,7 +23,19 @@ const periodBtns = document.querySelectorAll(".period-btn");
 const GAME_NAMES = {
   tictactoe: "Tic-Tac-Toe", snakeio: "Snake.io", katapult: "Katapult Tower",
   connect4: "Vier Gewinnt", pong: "Pong", reaction: "Reaction Duell",
-  battleship: "Schiffe versenken"
+  battleship: "Schiffe versenken", nim: "Nim", quiz: "Quiz-Duell", chess: "Schach",
+  airhockey: "Air Hockey", bomberman: "Bomber-Arena", artillery: "Artillery-Duell",
+  rps: "Schere Stein Papier", checkers: "Dame", guesswho: "Errate-Wer",
+  pool: "Pool-Duell", towerdefense: "Tower-Defense-Duell"
+};
+
+// MAP FIX (Punkt 5): SOLO_GAME_NAMES ebenfalls um pixelart/slithersolo erweitert
+const SOLO_GAME_NAMES = {
+  snake: "Snake", breakout: "Breakout", "2048": "2048", flappy: "Flappy",
+  minesweeper: "Minesweeper", memory: "Memory", stacktower: "Stack Tower",
+  anagramm: "Anagramm-Rush", coinrush: "Coin Rush", wordle: "Wörterrätsel",
+  simon: "Simon Says", typing: "Speed-Typing", sudoku: "Sudoku",
+  pixelart: "Pixel-Art-Painter", slithersolo: "Slither Solo"
 };
 
 renderShopAd("shop-ad");
@@ -64,6 +76,40 @@ async function loadStats() {
     return;
   }
   renderStats(filterByPeriod(allResults, currentPeriod));
+  loadSoloScores();
+}
+
+// MAP FIX (Punkt 3): Solo-Games laufen über die "scores"-Collection statt
+// matchResults, tauchten deshalb vorher gar nicht in der Bilanz auf. Zeigt pro
+// Solo-Game jetzt den persönlichen Highscore + globalen Bestwert.
+async function loadSoloScores() {
+  const el = document.getElementById("solo-scores");
+  if (!el) return;
+  try {
+    const snap = await getDocs(collection(db, "scores"));
+    const all = snap.docs.map(d => d.data());
+    const byGame = {};
+    all.forEach(s => {
+      if (!SOLO_GAME_NAMES[s.game]) return;
+      if (!byGame[s.game]) byGame[s.game] = [];
+      byGame[s.game].push(s);
+    });
+    if (!Object.keys(byGame).length) { el.innerHTML = `<div class="empty">Noch keine Solo-Scores.</div>`; return; }
+
+    el.innerHTML = "";
+    Object.entries(byGame).forEach(([gameId, scores]) => {
+      // Höher = besser, außer bei Zeit-/Zug-basierten Games (minesweeper, memory, wordle) — da ist weniger besser
+      const lowerIsBetter = ["minesweeper", "memory", "wordle"].includes(gameId);
+      const sorted = [...scores].sort((a,b) => lowerIsBetter ? a.score-b.score : b.score-a.score);
+      const best = sorted[0];
+      const div = document.createElement("div");
+      div.style.cssText = "font-family:'Press Start 2P',monospace;font-size:10px;color:var(--bl);margin-bottom:8px;";
+      div.textContent = `${SOLO_GAME_NAMES[gameId]} — Bestwert: ${best.name||"?"} (${best.score})`;
+      el.appendChild(div);
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="empty">Konnte Solo-Scores nicht laden.</div>`;
+  }
 }
 
 // MAP — ELO-Berechnung (standard K=32, Startpunkte 1000)
