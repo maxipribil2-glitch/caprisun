@@ -34,6 +34,7 @@
 // "Welcome back {username}" und leitet automatisch zur Lobby weiter.
 const params = new URLSearchParams(window.location.search);
 const username = params.get("u") || "Spieler";
+const isNewUser = params.get("new") === "1";
 const canvas = document.getElementById("matrix-canvas");
 const ctx = canvas.getContext("2d");
 
@@ -62,23 +63,43 @@ function draw() {
   }
 }
 
-let rafId = setInterval(draw, 33);
+// MAP FIX: requestAnimationFrame statt setInterval(33ms) — läuft smoother mit dem
+// Browser-Render-Zyklus mit, ruckelt weniger auf schwächeren Handys. Zusätzlich
+// throttled auf ~30fps damit's nicht unnötig CPU zieht.
+let running = true;
+let lastFrame = 0;
+function loop(ts) {
+  if (!running) return;
+  if (ts - lastFrame > 33) { draw(); lastFrame = ts; }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// MAP FIX: Fallback falls kein Username übergeben wurde (z.B. wer ruft intro.html
+// direkt ohne ?u= auf) — schickt sofort zur Lobby statt sinnlos "Spieler" anzuzeigen.
+if (!params.get("u")) {
+  window.location.href = "lobby.html";
+}
 
 // ── Text-Sequenz ──
+let redirected = false;
+function goToLobby() {
+  if (redirected) return;
+  redirected = true;
+  running = false;
+  window.location.href = "lobby.html";
+}
+
 setTimeout(() => {
-  document.getElementById("intro-line2").textContent = `Welcome back, ${username} 👋`;
+  document.getElementById("intro-line2").textContent = isNewUser
+    ? `Willkommen, ${username} 🎉`
+    : `Welcome back, ${username} 👋`;
 }, 1800);
 
-setTimeout(() => {
-  clearInterval(rafId);
-  window.location.href = "lobby.html";
-}, 3200);
+setTimeout(goToLobby, 3200);
 
 // Skip-Möglichkeit falls wer's eilig hat — Tap/Klick überspringt sofort
-document.body.addEventListener("pointerdown", () => {
-  clearInterval(rafId);
-  window.location.href = "lobby.html";
-});
+document.body.addEventListener("pointerdown", goToLobby);
 </script>
 
 </body>

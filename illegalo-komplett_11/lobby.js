@@ -28,7 +28,15 @@ const GAMES = [
   { id: "connect4", name: "Vier Gewinnt (1v1)" },
   { id: "pong", name: "Pong (1v1)" },
   { id: "reaction", name: "Reaction Duell (1v1)" },
-  { id: "battleship", name: "Schiffe versenken (1v1)" }
+  { id: "battleship", name: "Schiffe versenken (1v1)" },
+  { id: "nim", name: "Nim (1v1)" },
+  { id: "quiz", name: "Quiz-Duell (1v1)" },
+  { id: "chess", name: "Schach (1v1)" },
+  { id: "airhockey", name: "Air Hockey (1v1)" },
+  { id: "bomberman", name: "Bomber-Arena (1v1)" },
+  { id: "artillery", name: "Artillery-Duell (1v1)" },
+  { id: "rps", name: "Schere Stein Papier (1v1)" },
+  { id: "checkers", name: "Dame (1v1)" }
 ];
 
 // solo arcade games — no invite needed, just play directly
@@ -38,6 +46,14 @@ const ARCADE_GAMES = [
   { id: "roulette", name: "Roulette", icon: "🎰", page: "roulette.html" },
   { id: "2048", name: "2048", icon: "🔢", page: "game2048.html" },
   { id: "flappy", name: "Flappy", icon: "🐤", page: "flappy.html" },
+  { id: "minesweeper", name: "Minesweeper", icon: "💣", page: "minesweeper.html" },
+  { id: "memory", name: "Memory", icon: "🃏", page: "memory.html" },
+  { id: "stacktower", name: "Stack Tower", icon: "🗼", page: "stacktower.html" },
+  { id: "anagramm", name: "Anagramm-Rush", icon: "🔤", page: "anagramm.html" },
+  { id: "coinrush", name: "Coin Rush", icon: "🏃", page: "coinrush.html" },
+  { id: "wordle", name: "Wörterrätsel", icon: "📝", page: "wordle.html" },
+  { id: "simon", name: "Simon Says", icon: "🎯", page: "simon.html" },
+  { id: "typing", name: "Speed-Typing", icon: "⌨️", page: "typing.html" },
 ];
 
 const SNAKEIO_GRID = 20;
@@ -71,6 +87,14 @@ function gamePage(gameId) {
   if (gameId === "pong") return "pong.html";
   if (gameId === "reaction") return "reaction.html";
   if (gameId === "battleship") return "battleship.html";
+  if (gameId === "nim") return "nim.html";
+  if (gameId === "quiz") return "quiz.html";
+  if (gameId === "chess") return "chess.html";
+  if (gameId === "airhockey") return "airhockey.html";
+  if (gameId === "bomberman") return "bomberman.html";
+  if (gameId === "artillery") return "artillery.html";
+  if (gameId === "rps") return "rps.html";
+  if (gameId === "checkers") return "checkers.html";
   return "game.html";
 }
 
@@ -146,6 +170,47 @@ function buildRoomData(inv) {
       shots: {},
       turn: inv.from
     };
+  }
+  if (inv.game === "nim") {
+    return {
+      ...base,
+      piles: null, // wird vom Host beim ersten onSnapshot gesetzt
+      turn: inv.from
+    };
+  }
+  if (inv.game === "quiz") {
+    return {
+      ...base,
+      scores: { [inv.from]: 0, [inv.to]: 0 },
+      round: 0,
+      currentQuestion: null,
+      answers: {},
+      roundResolved: false
+    };
+  }
+  if (inv.game === "chess") {
+    return { ...base, board: null, turn: "w", colors: null, captured: null };
+  }
+  if (inv.game === "airhockey") {
+    return { ...base, puck: null, scoreTop: 0, scoreBottom: 0 };
+  }
+  if (inv.game === "bomberman") {
+    return { ...base, grid: null, pos: null, bombs: [], alive: null };
+  }
+  if (inv.game === "artillery") {
+    return {
+      ...base,
+      terrain: null,
+      hits: { [inv.from]: 0, [inv.to]: 0 },
+      turn: inv.from,
+      lastShot: null
+    };
+  }
+  if (inv.game === "rps") {
+    return { ...base, scores: { [inv.from]: 0, [inv.to]: 0 }, round: 0, picks: {}, roundResolved: false };
+  }
+  if (inv.game === "checkers") {
+    return { ...base, board: null, turn: "w", colors: null };
   }
   // default: tictactoe
   return {
@@ -346,6 +411,7 @@ onAuthStateChanged(auth, (user) => {
   listenOnlineUsers();
   listenIncomingInvites();
   listenMySentInvites();
+  listenLiveMatches();
   listenActiveRooms();
   requestNotifPermission();
 });
@@ -459,6 +525,44 @@ async function sendInvite(toUid, toName) {
 }
 
 const notifiedInviteIds = new Set();
+
+// MAP FEATURE: Live-Match-Banner. Zeigt alle laufenden Matches (status:"active")
+// in der Lobby an, mit direktem Spectate-Link. Text passt sich automatisch am
+// Game-Namen an: "username spielt gerade gegen username Schach! Schau live zu!"
+function listenLiveMatches() {
+  const panel = document.getElementById("live-matches-panel");
+  const listEl = document.getElementById("live-matches-list");
+  const q = query(collection(db, "rooms"), where("status", "==", "active"));
+  onSnapshot(q, (snap) => {
+    if (snap.empty) { panel.style.display = "none"; return; }
+    const rows = [];
+    snap.forEach((d) => {
+      const room = d.data();
+      // MAP HINWEIS (Punkt 6): Spectators stehen NIE in room.players (nur die 2
+      // eigentlichen Match-Teilnehmer), heißt Zuschauer können hier nicht versehentlich
+      // als "aktiver Spieler" auftauchen — war schon safe, Check bleibt trotzdem explizit.
+      if (!room.players || room.players.length !== 2) return;
+      const [p1, p2] = room.players;
+      const name1 = room.playerNames?.[p1] || "Spieler";
+      const name2 = room.playerNames?.[p2] || "Spieler";
+      const gameEntry = GAMES.find(g => g.id === room.game);
+      const gameName = gameEntry ? gameEntry.name.replace(" (1v1)", "") : (room.game || "einem Spiel");
+      rows.push({ roomId: d.id, game: room.game, name1, name2, gameName });
+    });
+    if (!rows.length) { panel.style.display = "none"; return; }
+    panel.style.display = "block";
+    listEl.innerHTML = "";
+    rows.forEach(r => {
+      const li = document.createElement("li");
+      li.style.cursor = "pointer";
+      li.innerHTML = `<span>🎮 <strong>${r.name1}</strong> spielt gerade gegen <strong>${r.name2}</strong> ${r.gameName}!</span><span class="ghost" style="padding:4px 10px;font-size:11px;">Live zuschauen →</span>`;
+      li.addEventListener("click", () => {
+        window.location.href = `${gamePage(r.game)}?room=${r.roomId}&spectate=1`;
+      });
+      listEl.appendChild(li);
+    });
+  });
+}
 
 function listenIncomingInvites() {
   const q = query(collection(db, "invites"), where("to", "==", myUid), where("status", "==", "pending"));

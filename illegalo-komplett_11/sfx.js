@@ -6,7 +6,18 @@ function getCtx() {
   return ctx;
 }
 
+// MAP FEATURE: globaler Mute-Toggle. localStorage-Flag gilt für ALLE Games, nicht nur
+// pro Seite. beep() checkt das Flag zuerst, bevor überhaupt ein Ton erzeugt wird.
+function isMuted() { return localStorage.getItem("illegalo_gc_muted") === "1"; }
+export function toggleMute() {
+  const muted = !isMuted();
+  localStorage.setItem("illegalo_gc_muted", muted ? "1" : "0");
+  return muted;
+}
+export function getMuted() { return isMuted(); }
+
 function beep(freq, duration, type = "square", volume = 0.13) {
+  if (isMuted()) return;
   try {
     const c = getCtx();
     const osc = c.createOscillator();

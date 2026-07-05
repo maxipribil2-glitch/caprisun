@@ -58,6 +58,7 @@ loginForm.addEventListener("submit", async (e) => {
   const password = document.getElementById("login-password").value;
   try {
     await signInWithEmailAndPassword(auth, usernameToEmail(username), password);
+    sessionStorage.setItem("gc_just_logged_in", "1"); // MAP: markiert frischen Login-Vorgang
     // redirect happens in onAuthStateChanged below
   } catch (err) {
     showError(friendlyError(err));
@@ -88,6 +89,8 @@ registerForm.addEventListener("submit", async (e) => {
       lastDailyBonus: null,
       createdAt: serverTimestamp()
     });
+    sessionStorage.setItem("gc_just_logged_in", "1");
+    sessionStorage.setItem("gc_new_user", "1"); // MAP: eigener Flag für "gerade registriert"
     // redirect happens in onAuthStateChanged below
   } catch (err) {
     showError(friendlyError(err));
@@ -96,6 +99,19 @@ registerForm.addEventListener("submit", async (e) => {
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    window.location.href = "intro.html?u=" + encodeURIComponent(username);
+    // MAP FIX: Intro-Screen (Matrix-Animation + Welcome-Text) läuft nur, wenn der
+    // User GERADE eben eingeloggt/registriert hat (Flag aus signIn/register-Handler).
+    // Falls schon ne bestehende Session da ist und man einfach auf gc-index.html
+    // landet, geht's direkt zur Lobby ohne die Animation nochmal abzuspulen.
+    const justLoggedIn = sessionStorage.getItem("gc_just_logged_in") === "1";
+    const isNewUser = sessionStorage.getItem("gc_new_user") === "1";
+    sessionStorage.removeItem("gc_just_logged_in");
+    sessionStorage.removeItem("gc_new_user");
+    if (justLoggedIn) {
+      const params = new URLSearchParams({ u: username, new: isNewUser ? "1" : "0" });
+      window.location.href = "intro.html?" + params.toString();
+    } else {
+      window.location.href = "lobby.html";
+    }
   }
 });

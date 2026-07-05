@@ -5,6 +5,23 @@
 import { app } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { toggleMute, getMuted } from "./sfx.js";
+
+function ensureMuteBtn() {
+  let btn = document.getElementById("mute-btn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "mute-btn";
+    btn.className = "gc-theme-btn";
+    btn.style.marginLeft = "4px";
+    const topbar = document.querySelector(".topbar");
+    if (topbar) topbar.appendChild(btn);
+    btn.textContent = getMuted() ? "🔇" : "🔊";
+    btn.addEventListener("click", () => { btn.textContent = toggleMute() ? "🔇" : "🔊"; });
+  }
+  return btn;
+}
+ensureMuteBtn();
 
 const auth = getAuth(app);
 const db = getFirestore(app);
