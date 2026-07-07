@@ -314,11 +314,12 @@ document.querySelectorAll(".arcade-filter-btn").forEach(btn => {
     renderArcadeGrid();
   });
 });
-renderArcadeGrid();
 
 // MAP FEATURE: Banner für den Einarmigen Banditen — checkt ob der tägliche Spin
-// noch verfügbar ist (basiert auf gleichem lastSlotSpin-Feld wie in gamocoin.js),
-// zeigt nur an falls ja, damit man's nicht vergisst.
+// noch verfügbar ist (basiert auf gleichem lastSlotSpin-Feld wie in gamocoin.js).
+// MAP FIX: läuft jetzt NACH myUid-Zuweisung im onAuthStateChanged-Callback statt
+// vorher am Modul-Ende — davor war myUid noch null wenn die Funktion lief, das
+// war der Grund warum der Banner beim Login nie aufgetaucht ist.
 async function renderSlotMachineBanner() {
   if (!myUid) return;
   try {
@@ -335,7 +336,8 @@ async function renderSlotMachineBanner() {
     panel.appendChild(banner);
   } catch (e) {}
 }
-renderSlotMachineBanner();
+
+renderArcadeGrid();
 
 // MAP FEATURE (Punkt 6): "Spiel des Tages" — deterministisch nach Kalendertag
 // gewählt (gleicher Tag = gleiches Spiel für alle), damit nicht immer nur die
@@ -534,6 +536,7 @@ onAuthStateChanged(auth, (user) => {
   listenLiveMatches();
   loadDailyBonusPanel();
   checkForChangelogUpdate();
+  renderSlotMachineBanner();
 
   // MAP: falls der Daily Bonus grad im intro.html-Flow automatisch geclaimt wurde,
   // zeigen wir hier den Toast, sobald die Lobby geladen ist.
