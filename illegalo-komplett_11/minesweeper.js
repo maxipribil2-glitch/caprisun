@@ -148,7 +148,10 @@ async function submitResult(seconds) {
     await awardGameReward(myUid, coinAmount, "minesweeper_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
-  } catch (e) {}
+  } catch (e) {
+    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    console.error("[minesweeper] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index:", e);
+  }
 }
 
 async function loadLeaderboard() {

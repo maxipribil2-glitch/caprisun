@@ -73,7 +73,9 @@ function render() {
   secretBox.style.display = "block";
   secretBox.textContent = `Deine Geheimkarte ist: ${myFace} — der Gegner versucht sie zu erraten!`;
 
-  const oppUid = opponentUid();
+  // MAP FIX (Deep-Scan): hier stand nochmal "const oppUid = opponentUid();" —
+  // doppelte Deklaration im gleichen Scope = SyntaxError, das ganze Game crashte
+  // beim Laden. oppUid von Zeile 60 gilt hier noch, einfach weiterverwenden.
   const myGuessData = room.guesses?.[myUid];
 
   gridEl.innerHTML = "";

@@ -82,7 +82,7 @@ function buyUpgrade(u) {
 async function payoutTick() {
   if (sinceLastPayout <= 0) return;
   const amount = Math.min(sinceLastPayout, MAX_PAYOUT_PER_TICK);
-  sinceLastPayout -= amount;
+  sinceLastPayout = 0;
   const ok = await awardGameReward(myUid, amount, "clicker_idle");
   statusEl.textContent = ok ? `💰 +${amount} echte Coins gutgeschrieben!` : "⏳ Cooldown aktiv, nächste Auszahlung bald.";
 }

@@ -11,6 +11,7 @@ import {
   getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
+import { awardGameReward } from "./gamocoin.js";
 
 const auth = getAuth(app);
 const db = getFirestore(app);

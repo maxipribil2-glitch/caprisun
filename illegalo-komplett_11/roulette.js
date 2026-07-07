@@ -4,6 +4,9 @@
 import { app } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
+  getDatabase, ref, onValue
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+import {
   getFirestore, doc, onSnapshot, setDoc, updateDoc, getDoc,
   collection, query, orderBy, serverTimestamp, runTransaction, increment, addDoc
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
@@ -11,6 +14,7 @@ import { getBalance, addCoins, claimDailyBonus, placeBet, payout, formatCoins, D
 
 const auth = getAuth(app);
 const db   = getFirestore(app);
+const rtdb = getDatabase(app);
 
 // ── Roulette-Nummern & Farben ──
 const EU_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
@@ -69,8 +73,45 @@ onAuthStateChanged(auth, async (user) => {
   buildChips();
   joinTable();
   startWheelIdle();
+  listenOnlinePlayersForInvite();
   document.getElementById("leave-btn").addEventListener("click", leaveTable);
 });
+
+// MAP FEATURE: Online-Spieler einladen, gemeinsam am GLEICHEN Roulette-Tisch zu
+// zocken. Läuft über die gleiche "invites"-Collection wie bei den anderen Games,
+// aber mit game:"roulette" + tableId statt roomId — beim Annehmen landet der
+// eingeladene Spieler direkt auf roulette.html?table=DEIN_TISCH.
+function listenOnlinePlayersForInvite() {
+  const listEl = document.getElementById("online-invite-list");
+  if (!listEl) return;
+  const statusRef = ref(rtdb, "status");
+  onValue(statusRef, (snap) => {
+    const data = snap.val() || {};
+    const others = Object.entries(data).filter(([uid, v]) => uid !== myUid && v.state === "online");
+    if (!others.length) { listEl.innerHTML = `<li class="empty">Niemand sonst online grad.</li>`; return; }
+    listEl.innerHTML = "";
+    others.forEach(([uid, v]) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>🟢 ${v.username || "Unbekannt"}</span><button class="ghost roulette-invite-btn" data-uid="${uid}" data-name="${v.username||"Unbekannt"}" style="padding:4px 10px;font-size:11px;">Einladen 📨</button>`;
+      listEl.appendChild(li);
+    });
+    listEl.querySelectorAll(".roulette-invite-btn").forEach(btn => {
+      btn.addEventListener("click", () => sendTableInvite(btn.dataset.uid, btn.dataset.name));
+    });
+  });
+}
+
+async function sendTableInvite(toUid, toName) {
+  try {
+    await addDoc(collection(db, "invites"), {
+      from: myUid, fromName: myName, to: toUid, toName,
+      game: "roulette", gameName: "Roulette",
+      status: "pending", roomId: null, tableId: TABLE_ID,
+      createdAt: serverTimestamp()
+    });
+    showToast(`Einladung an ${toName} geschickt! 📨`);
+  } catch (e) { showToast("Einladung fehlgeschlagen.", true); }
+}
 
 // ── Balance ──
 function updateBalanceDisplay() {
@@ -392,38 +433,71 @@ function handleTableUpdate(data) {
   }
 }
 
+// MAP FIX (Roulette-Bug): vorher generierte JEDER Client der grad online war seine
+// EIGENE zufällige "result"-Zahl beim Phasenwechsel "betting"->"spinning" — wenn
+// 2+ Clients fast gleichzeitig ihren Timer feuerten, gewann einfach wer zuletzt
+// schrieb, heißt das Ergebnis konnte sich theoretisch NACH Start der Animation
+// nochmal ändern. Fix: läuft jetzt über runTransaction — liest die AKTUELLE Phase
+// direkt vorm Schreiben, und bricht ab falls die Phase inzwischen schon von nem
+// anderen Client wechselte. Nur der erste Call gewinnt, alle späteren no-op'en.
 async function advancePhase(data) {
   const now = Date.now();
   if (data.phase === "betting") {
-    // Pick result, commit bets
     const result = Math.floor(Math.random() * (variant==="us"?38:37));
-    await setDoc(tableRef, {
-      phase: "spinning",
-      phaseEnds: now + SPIN_SECS*1000,
-      result,
-      players: data.players || {},
-      history: data.history || [],
-      variant
-    });
-    // Commit our local bets to Firestore for other players to see
-    await commitBets(result, "round:" + (data.phaseEnds || now));
+    let wonTransaction = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(tableRef);
+        const current = snap.exists() ? snap.data() : {};
+        if (current.phase !== "betting") return; // ein anderer Client war schneller
+        tx.set(tableRef, {
+          phase: "spinning",
+          phaseEnds: now + SPIN_SECS*1000,
+          result,
+          players: current.players || {},
+          history: current.history || [],
+          variant
+        });
+        wonTransaction = true;
+      });
+    } catch (e) {}
+    if (wonTransaction) {
+      await commitBets(result, "round:" + (data.phaseEnds || now));
+    }
   } else if (data.phase === "spinning") {
-    await updateDoc(tableRef, { phase: "result", phaseEnds: Date.now() + RESULT_SECS*1000 });
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(tableRef);
+        const current = snap.exists() ? snap.data() : {};
+        if (current.phase !== "spinning") return;
+        tx.update(tableRef, { phase: "result", phaseEnds: Date.now() + RESULT_SECS*1000 });
+      });
+    } catch (e) {}
   } else if (data.phase === "result") {
-    // New round
-    await setDoc(tableRef, {
-      phase: "betting",
-      phaseEnds: Date.now() + BETTING_SECS*1000,
-      result: null,
-      players: {},
-      history: [(data.result != null ? data.result : 0), ...(data.history||[])].slice(0,20),
-      variant
-    });
-    localBets = {}; betHistory = [];
-    updateTotalBet(); renderBetChips();
-    document.getElementById("result-display").textContent = "—";
-    document.getElementById("result-display").className = "result-flash";
-    startWheelIdle();
+    let wonTransaction = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(tableRef);
+        const current = snap.exists() ? snap.data() : {};
+        if (current.phase !== "result") return;
+        tx.set(tableRef, {
+          phase: "betting",
+          phaseEnds: Date.now() + BETTING_SECS*1000,
+          result: null,
+          players: {},
+          history: [(current.result != null ? current.result : 0), ...(current.history||[])].slice(0,20),
+          variant
+        });
+        wonTransaction = true;
+      });
+    } catch (e) {}
+    if (wonTransaction) {
+      localBets = {}; betHistory = [];
+      updateTotalBet(); renderBetChips();
+      document.getElementById("result-display").textContent = "—";
+      document.getElementById("result-display").className = "result-flash";
+      startWheelIdle();
+    }
   }
 }
 

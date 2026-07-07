@@ -123,7 +123,13 @@ async function gameOver() {
       uid: myUid, name: myName, game: "flappy", score, at: serverTimestamp()
     });
     loadLeaderboard();
-  } catch (e) {}
+  } catch (e) {
+    // MAP FIX: vorher stiller catch(e){} — Leaderboard blieb für immer bei "Lade..."
+    // hängen wenn die Query failte (meistens fehlender Firestore Composite-Index für
+    // where()+orderBy() zusammen). Jetzt: sichtbare Fehlermeldung + Console-Hinweis.
+    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    console.error("[flappy] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index (Konsole-Link im Error oben checken):", e);
+  }
 }
 
 function draw() {

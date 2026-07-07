@@ -58,6 +58,7 @@ const GAMES = [
   { id: "guesswho", name: "Errate-Wer (1v1)" },
   { id: "pool", name: "Pool-Duell (1v1)" },
   { id: "towerdefense", name: "Tower-Defense-Duell (1v1)" },
+  { id: "wordchain", name: "Wortkette (1v1)" },
   { id: "pool", name: "Billard-Duell (1v1)" },
   { id: "guesswho", name: "Errate-Wer (1v1)" }
 ];
@@ -83,6 +84,8 @@ const ARCADE_GAMES = [
   { id: "slithersolo", name: "Slither Solo", icon: "🟢", page: "slithersolo.html" },
   { id: "wham", name: "Whack-a-Mole", icon: "🐹", page: "wham.html" },
   { id: "bubbleshooter", name: "Bubble Shooter", icon: "🔵", page: "bubbleshooter.html" },
+  { id: "stroop", name: "Farb-Reflex", icon: "🌈", page: "stroop.html" },
+  { id: "balloonpop", name: "Balloon Pop", icon: "🎈", page: "balloonpop.html" },
 ];
 
 const SNAKEIO_GRID = 20;
@@ -128,6 +131,7 @@ function gamePage(gameId) {
   if (gameId === "guesswho") return "guesswho.html";
   if (gameId === "pool") return "pool.html";
   if (gameId === "towerdefense") return "towerdefense.html";
+  if (gameId === "wordchain") return "wordchain.html";
   if (gameId === "guesswho") return "guesswho.html";
   return "game.html";
 }
@@ -236,6 +240,9 @@ function buildRoomData(inv) {
   }
   if (inv.game === "towerdefense") {
     return { ...base, lanes: null };
+  }
+  if (inv.game === "wordchain") {
+    return { ...base, chain: [], turn: inv.from, turnStartAt: Date.now() };
   }
   if (inv.game === "bomberman") {
     return { ...base, grid: null, pos: null, bombs: [], alive: null };
@@ -753,6 +760,13 @@ function listenIncomingInvites() {
 }
 
 async function acceptInvite(inviteId, inv) {
+  // MAP FEATURE: Roulette-Invites laufen NICHT über das rooms-System (kein 1v1-
+  // Match), sondern führen beide Spieler einfach zum GLEICHEN Tisch via ?table=.
+  if (inv.game === "roulette") {
+    await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
+    window.location.href = `roulette.html?table=${encodeURIComponent(inv.tableId || "main")}`;
+    return;
+  }
   const roomRef = await addDoc(collection(db, "rooms"), buildRoomData(inv));
   await updateDoc(doc(db, "invites", inviteId), { status: "accepted", roomId: roomRef.id });
   window.location.href = `${gamePage(inv.game)}?room=${roomRef.id}`;

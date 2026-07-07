@@ -170,7 +170,10 @@ async function submitScore() {
       uid: myUid, name: myName, game: "2048", score, at: serverTimestamp()
     });
     loadLeaderboard();
-  } catch (e) {}
+  } catch (e) {
+    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    console.error("[2048] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index:", e);
+  }
 }
 
 async function loadLeaderboard() {

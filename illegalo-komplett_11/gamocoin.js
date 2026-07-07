@@ -30,8 +30,7 @@ export async function getBalance(uid) {
 export async function addCoins(uid, amount, reason) {
   try {
     await updateDoc(doc(db, "users", uid), {
-      gamocoins: increment(amount),
-      [`coinLog_${Date.now()}`]: { amount, reason, at: new Date().toISOString() }
+      gamocoins: increment(amount)
     });
     return true;
   } catch(e) { return false; }
@@ -58,15 +57,21 @@ export async function claimDailyBonus(uid) {
   } catch(e) { return { claimed: false, reason: "error" }; }
 }
 
-// ── Wette platzieren (atomic deduct) ──
+// ── Wette platzieren (jetzt WIRKLICH atomic) ──
+// MAP FIX: vorher stand hier getDoc + separates updateDoc — der Kommentar sagte
+// "atomic", war's aber nicht. Zwei offene Tabs konnten gleichzeitig den gleichen
+// Kontostand lesen und beide abbuchen (Double-Spend). Jetzt echte Transaction.
 export async function placeBet(uid, amount) {
+  const ref = doc(db, "users", uid);
   try {
-    const snap = await getDoc(doc(db, "users", uid));
-    if (!snap.exists()) return { ok: false, reason: "user_not_found" };
-    const balance = snap.data().gamocoins ?? 0;
-    if (balance < amount) return { ok: false, reason: "insufficient", balance };
-    await updateDoc(doc(db, "users", uid), { gamocoins: increment(-amount) });
-    return { ok: true, balance: balance - amount };
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return { ok: false, reason: "user_not_found" };
+      const balance = snap.data().gamocoins ?? 0;
+      if (balance < amount) return { ok: false, reason: "insufficient", balance };
+      tx.update(ref, { gamocoins: increment(-amount) });
+      return { ok: true, balance: balance - amount };
+    });
   } catch(e) { return { ok: false, reason: "error" }; }
 }
 
@@ -97,8 +102,7 @@ export async function addLiveDropCoins(uid, amount, reason) {
       if (toCredit <= 0) return 0;
       tx.update(ref, {
         gamocoins: increment(toCredit),
-        liveDropSessionTotal: sessionTotal + toCredit,
-        [`coinLog_${Date.now()}`]: { amount: toCredit, reason: reason || "live_drop", at: new Date().toISOString() }
+        liveDropSessionTotal: sessionTotal + toCredit
       });
       return toCredit;
     });
@@ -134,8 +138,7 @@ export async function awardGameReward(uid, amount, reason) {
       if (Date.now() - last < REWARD_COOLDOWN_MS) return "cooldown";
       tx.update(ref, {
         gamocoins: increment(capped),
-        [cooldownField]: serverTimestamp(),
-        [`coinLog_${Date.now()}`]: { amount: capped, reason: reason || "game_reward", at: new Date().toISOString() }
+        [cooldownField]: serverTimestamp()
       });
       return "ok";
     });
