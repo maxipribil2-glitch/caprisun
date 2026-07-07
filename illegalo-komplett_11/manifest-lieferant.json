@@ -1,0 +1,21 @@
+{
+  "name": "Illegalo Lieferant",
+  "short_name": "Lieferant",
+  "description": "Illegalo Lieferanten-Panel",
+  "start_url": "lieferant.html",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#f59e0b",
+  "categories": [
+    "productivity"
+  ],
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-lieferant.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

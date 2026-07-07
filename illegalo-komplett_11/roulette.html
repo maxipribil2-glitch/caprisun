@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!-- MAP -->
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ILLEGALO GAMECENTER — Roulette</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Roulette-specific styles on top of retro style.css ── */
+.rl-layout { display:grid; grid-template-columns:1fr; gap:14px; }
+@media(min-width:700px){ .rl-layout{ grid-template-columns:280px 1fr; } }
+
+/* wheel canvas wrapper */
+.wheel-wrap { display:flex;flex-direction:column;align-items:center;gap:10px; }
+#rl-canvas { display:block; border-radius:50%; box-shadow:0 0 30px rgba(255,46,154,.4),0 0 0 4px #2a1538; touch-action:none; }
+
+/* result flash */
+.result-flash { font-family:'Press Start 2P',monospace; font-size:28px; text-align:center; min-height:40px; text-shadow:0 0 16px currentColor; }
+.res-red  { color:#ff3864; }
+.res-black{ color:#f1edff; }
+.res-green{ color:#39ff8c; }
+
+/* betting table */
+.bet-table { border-collapse:collapse; width:100%; user-select:none; }
+.bet-table td { border:1.5px solid #4a2f7a; padding:0; text-align:center; font-family:'Press Start 2P',monospace; font-size:9px; cursor:pointer; transition:background .1s; position:relative; line-height:1.3; }
+.bet-table td:hover { background:rgba(255,46,154,.25) !important; }
+.bet-table .num-cell { width:28px; height:28px; display:table-cell; }
+.bet-table .wide-cell { height:28px; font-size:8px; }
+.red-num { background:rgba(255,56,100,.18); color:#ff5c80; }
+.blk-num { background:rgba(30,20,50,.6); color:#c4b8e8; }
+.zer-num { background:rgba(16,185,129,.18); color:#39ff8c; }
+.bet-chip { position:absolute; top:50%;left:50%;transform:translate(-50%,-50%);
+  width:18px;height:18px;border-radius:50%;font-size:7px;font-family:'VT323',monospace;
+  display:flex;align-items:center;justify-content:center;font-weight:700;
+  border:2px solid rgba(255,255,255,.4);pointer-events:none;z-index:2; }
+
+/* chip selector */
+.chip-row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+.chip-btn { width:44px;height:44px;border-radius:50%;font-family:'Press Start 2P',monospace;
+  font-size:9px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border:3px solid rgba(255,255,255,.3);transition:.1s;box-shadow:0 3px 0 rgba(0,0,0,.5); }
+.chip-btn.on { border-color:#fff; box-shadow:0 0 12px currentColor, 0 3px 0 rgba(0,0,0,.5); }
+.chip-btn:active { transform:translateY(2px); box-shadow:none; }
+
+/* multiplayer panel */
+.mp-player { display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--bd);font-size:15px; }
+.mp-player:last-child { border-bottom:none; }
+.mp-bet-tag { font-family:'Press Start 2P',monospace;font-size:7px;padding:2px 5px;border-radius:4px;background:rgba(99,102,241,.2);color:var(--bl); }
+
+/* phase timer */
+.phase-bar { height:5px; background:var(--bd); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+.phase-fill { height:100%; background:var(--in); transition:width .9s linear; box-shadow:0 0 8px var(--in); }
+.phase-label { font-family:'Press Start 2P',monospace; font-size:10px; color:var(--am); text-align:center; margin-bottom:6px; animation:blink-dot 1s steps(2) infinite; }
+
+/* gamocoin display */
+.coin-display { font-family:'Press Start 2P',monospace; font-size:11px; color:var(--am); text-shadow:0 0 8px rgba(255,214,10,.5); }
+
+/* table type toggle */
+.table-toggle { display:flex; gap:6px; }
+.table-toggle button { flex:1; font-family:'Press Start 2P',monospace; font-size:9px; padding:8px; }
+.table-toggle button.on { background:var(--in); border-color:var(--in); color:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap" style="max-width:760px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:13px;"><span class="accent-dot" style="background:var(--am);"></span>Roulette</div>
+    <select id="table-select" style="font-family:'VT323',monospace;font-size:15px;background:var(--s2);color:var(--tx);border:1.5px solid var(--bd);border-radius:6px;padding:3px 6px;margin-left:6px;">
+      <option value="main">Haupttisch</option>
+      <option value="vip">VIP-Tisch</option>
+      <option value="chill">Chill-Tisch</option>
+    </select>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="coin-display" id="balance-display">…🪙</span>
+      <button class="ghost" onclick="claimBonus()" title="Daily Bonus">🎁</button>
+      <button class="ghost" id="leave-btn">← Lobby</button>
+    </div>
+  </div>
+
+  <div class="rl-layout">
+    <!-- LEFT: Wheel + Controls -->
+    <div>
+      <div class="panel">
+        <div class="table-toggle" style="margin-bottom:12px;">
+          <button class="on" id="btn-eu" onclick="setVariant('eu')">🇪🇺 European</button>
+          <button id="btn-us" onclick="setVariant('us')">🇺🇸 American</button>
+        </div>
+        <div class="wheel-wrap">
+          <canvas id="rl-canvas" width="240" height="240"></canvas>
+          <div class="result-flash" id="result-display">—</div>
+        </div>
+
+        <div class="phase-bar"><div class="phase-fill" id="phase-fill" style="width:100%"></div></div>
+        <div class="phase-label" id="phase-label">WARTEN AUF SPIELER…</div>
+
+        <div style="margin:10px 0;">
+          <div style="font-size:13px;color:var(--mu);margin-bottom:6px;">Chip wählen:</div>
+          <div class="chip-row" id="chip-row"></div>
+        </div>
+
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <button id="spin-btn" onclick="requestSpin()" style="flex:1;font-size:10px;" disabled>🎰 DREHEN</button>
+          <button onclick="clearBets()" class="ghost" style="font-size:10px;">✕ Alles</button>
+          <button onclick="undoLastBet()" class="ghost" style="font-size:10px;">↩ Undo</button>
+        </div>
+        <div style="font-size:13px;color:var(--am);text-align:center;margin-top:6px;">Gesetzt: <strong id="total-bet-display">0 🪙</strong></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Betting Table + Multiplayer -->
+    <div>
+      <div class="panel" style="overflow-x:auto;">
+        <table class="bet-table" id="bet-table"></table>
+      </div>
+
+      <div class="panel">
+        <h2 style="margin:0 0 10px;">👥 Am Tisch</h2>
+        <div id="mp-players"><div class="empty">Nur du gerade.</div></div>
+      </div>
+
+      <div class="panel">
+        <h2 style="margin:0 0 10px;">📨 Online-Spieler einladen</h2>
+        <ul class="leaderboard" id="online-invite-list"><li class="empty">Lade...</li></ul>
+      </div>
+
+      <div class="panel">
+        <h2 style="margin:0 0 10px;">📈 Letzte Ergebnisse</h2>
+        <div id="history-row" style="display:flex;gap:6px;flex-wrap:wrap;min-height:26px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0</div>
+
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="roulette.js"></script>
+</body>
+</html>

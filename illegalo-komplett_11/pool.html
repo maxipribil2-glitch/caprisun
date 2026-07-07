@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Pool-Duell</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+(function(){ if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light"); })();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){ btn.textContent = isLight ? "🌙" : "☀️"; });
+};
+</script>
+<div class="wrap" style="max-width:440px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:15px;"><span class="accent-dot" style="background:var(--tx);"></span>Pool-Duell</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+  <div class="panel center">
+    <div class="sub" id="names" style="margin-bottom:6px;">Lade Raum...</div>
+    <canvas class="game-canvas" id="pool-canvas" width="380" height="200"></canvas>
+    <div id="status" style="margin:8px 0;"></div>
+    <button id="rematch-btn" class="hidden">Rematch</button>
+    <div class="hint">Ziehen vom weißen Ball weg zum Zielen, loslassen zum Schießen. Jeder hat 4 eigene Kugeln + die 8er zum Schluss.</div>
+    <div class="reactions-row">
+      <button class="reaction-btn" data-emoji="🔥">🔥</button>
+      <button class="reaction-btn" data-emoji="😂">😂</button>
+      <button class="reaction-btn" data-emoji="😡">😡</button>
+      <button class="reaction-btn" data-emoji="👏">👏</button>
+    </div>
+  </div>
+  <div id="match-chat" style="margin-top:14px;border:1.5px solid var(--bd);border-radius:6px;overflow:hidden;"><div id="chat-messages" style="height:90px;overflow-y:auto;padding:8px 10px;background:var(--bg);font-size:14px;display:flex;flex-direction:column;gap:4px;"></div><div style="display:flex;border-top:1.5px solid var(--bd);"><input id="chat-input" placeholder="Nachricht..." maxlength="80" style="flex:1;background:var(--s2);border:none;color:var(--tx);font-family:'VT323',monospace;font-size:16px;padding:7px 10px;outline:none;" onkeydown="if(event.key==='Enter')sendChat()"/><button onclick="sendChat()" style="background:var(--in);border:none;color:#fff;padding:7px 13px;font-family:'Press Start 2P',monospace;font-size:9px;cursor:pointer;">↵</button></div></div>
+  <div class="shop-ad" id="shop-ad"></div>
+</div>
+<div id="reaction-popup" class="reaction-popup"></div>
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0
+<style>.hidden{display:none;}</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="coinBadge.js"></script>
+<script type="module" src="pool.js"></script>
+</body>
+</html>

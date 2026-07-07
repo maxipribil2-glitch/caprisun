@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Lobby</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="page-title"><span class="accent-dot"></span>Illegalo Gamecenter</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="lobby-coins" style="font-family:'Press Start 2P',monospace;font-size:9px;color:var(--am);" title="MaxiCoins">…🪙</span>
+      <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+      <button class="ghost" id="lang-toggle" onclick="window._toggleLang && window._toggleLang()" style="font-size:.65rem;padding:5px 8px;">🇬🇧 EN</button>
+      <button class="ghost" id="logout-btn">Logout</button>
+    </div>
+  </div>
+  <div class="row topbar" style="margin-top:-18px;">
+    <div class="who" id="who"></div>
+    <div style="display:flex;gap:14px;align-items:center;">
+      <button id="avatar-btn" onclick="openAvatarPicker()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:0;line-height:1;" title="Avatar wählen">🐱</button>
+      <a href="stats.html" class="hint" style="text-decoration:underline; cursor:pointer;">📊 Bilanz</a>
+      <a href="elo.html" class="hint" style="text-decoration:underline; cursor:pointer;">🏆 Rangliste</a>
+      <a href="shop.html" class="hint" style="text-decoration:underline; cursor:pointer;">🏠 illegalo</a>
+    </div>
+  </div>
+
+  <!-- AVATAR PICKER MODAL -->
+  <div id="avatar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:3001;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--sf);border:2px solid var(--bd);border-radius:14px;padding:22px;max-width:340px;width:100%;">
+      <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:var(--bl);margin-bottom:14px;">AVATAR WÄHLEN</div>
+      <div id="avatar-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px;"></div>
+      <button onclick="closeAvatarPicker()" class="ghost" style="width:100%;">Schließen</button>
+    </div>
+  </div>
+
+  <div class="shop-ad" id="shop-ad"></div>
+
+  <div class="panel" id="live-matches-panel" style="display:none;">
+    <h2>👀 Live jetzt</h2>
+    <ul class="leaderboard" id="live-matches-list"></ul>
+  </div>
+
+  <div class="panel" id="daily-bonus-panel">
+    <h2>🎁 Daily Bonus</h2>
+    <div id="daily-bonus-content"><div class="empty">Lädt...</div></div>
+  </div>
+
+  <div class="panel" id="daily-challenge-panel">
+    <h2>🏆 Daily Challenge</h2>
+    <div id="daily-challenge-content"><div class="empty">Lädt...</div></div>
+  </div>
+
+  <div class="panel" id="achievements-panel" style="display:none;">
+    <h2>🎖️ Achievements</h2>
+    <div id="achievements-grid" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+
+  <div class="panel hidden" id="waiting-banner"></div>
+
+  <div class="panel">
+    <h2>Retro Arcade — Solo</h2>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="arcade-filter-btn ghost on" data-filter="all">Alle</button>
+      <button class="arcade-filter-btn ghost" data-filter="solo">Solo</button>
+      <button class="arcade-filter-btn ghost" data-filter="1v1">1v1</button>
+    </div>
+    <div class="arcade-grid" id="arcade-grid"></div>
+  </div>
+
+  <div class="panel">
+    <h2>⚔️ Turnier</h2>
+    <div class="arcade-grid" style="grid-template-columns:1fr;">
+      <a class="arcade-card" href="tournament.html"><span class="arcade-icon">🏆</span><span class="arcade-name">Turnier starten / beitreten</span></a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Spiel wählen</h2>
+    <label for="game-select">Welches Spiel willst du vorschlagen?</label>
+    <select id="game-select"></select>
+  </div>
+
+  <div class="panel">
+    <h2>Online jetzt</h2>
+    <ul class="player-list" id="player-list">
+      <li class="empty">Lade...</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Einladungen</h2>
+    <div id="incoming-invites"><div class="empty">Lade...</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>👁️ Laufende Matches</h2>
+    <div id="spectate-list"><div class="empty">Keine aktiven Matches gerade.</div></div>
+  </div>
+
+</div>
+
+<div class="map-sig">MAP</div>
+<div class="version-tag">v2.6
+<style>.hidden{display:none;}</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="lobby.js"></script>
+</body>
+</html>

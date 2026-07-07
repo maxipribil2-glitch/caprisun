@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Simon Says</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+(function(){ if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light"); })();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){ btn.textContent = isLight ? "🌙" : "☀️"; });
+};
+</script>
+<div class="wrap" style="max-width:400px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:15px;"><span class="accent-dot" style="background:var(--in);"></span>Simon Says</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+  <div class="panel center">
+    <div class="game-hud"><span id="round">Runde: 0</span><span id="best">Dein Best: —</span></div>
+    <div id="simon-board" style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;max-width:280px;aspect-ratio:1/1;margin:14px auto;">
+      <div class="simon-pad" data-color="red" style="background:#7f1d1d;border-radius:16px 4px 4px 4px;"></div>
+      <div class="simon-pad" data-color="green" style="background:#14532d;border-radius:4px 16px 4px 4px;"></div>
+      <div class="simon-pad" data-color="blue" style="background:#1e3a8a;border-radius:4px 4px 4px 16px;"></div>
+      <div class="simon-pad" data-color="yellow" style="background:#78350f;border-radius:4px 4px 16px 4px;"></div>
+    </div>
+    <div id="status" style="margin-bottom:8px;">Tippen zum Starten</div>
+    <button id="restart-btn" class="hidden">Nochmal</button>
+    <div class="hint">Merk dir die Farbfolge und tippe sie in der gleichen Reihenfolge nach.</div>
+  </div>
+  <div class="panel"><h2>🏆 Top 5</h2><ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul></div>
+  <div class="shop-ad" id="shop-ad"></div>
+</div>
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0
+<style>
+.hidden{display:none;}
+.simon-pad{cursor:pointer;transition:filter .1s;opacity:.55;}
+.simon-pad.active{opacity:1;filter:brightness(1.8);}
+</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="coinBadge.js"></script>
+<script type="module" src="simon.js"></script>
+</body>
+</html>
