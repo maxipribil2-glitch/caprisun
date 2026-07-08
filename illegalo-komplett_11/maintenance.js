@@ -18,7 +18,7 @@ onSnapshot(doc(db, "gcConfig", "site"), (snap) => {
     overlay = document.createElement("div");
     overlay.id = "maintenance-overlay";
     overlay.innerHTML = `
-      <div class="page-title" style="justify-content:center; font-size:18px;"><span class="accent-dot" style="background:var(--re);"></span>Server offline</div>
+      <div class="page-title" style="justify-content:center; font-size:18px;">🛑 Server Down 🛑</div>
       <p>Sorry, die Server sind gerade aus.<br><span class="sub">Schau später nochmal vorbei.</span></p>
     `;
     document.body.appendChild(overlay);

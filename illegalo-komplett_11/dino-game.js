@@ -17,6 +17,10 @@ window.applyMaintenanceReason = function(reason, defaults) {
     krank:         { icon: "🤒", title: "Der Admin ist <span style=\"color:#ef4444\">krank</span>", sub: "Sorry, gerade ist leider niemand verfügbar. Versuch's später noch einmal!" },
     geschlossen:   { icon: "🕐", title: "Gerade <span style=\"color:#f59e0b\">geschlossen</span>", sub: "Geöffnet: Dienstag & Donnerstag, 7–16 Uhr. Schau dann wieder vorbei — bis dahin: viel Spaß beim Dino! 🦖" },
     mittagspause:  { icon: "🍽️", title: "Sorry, heute keine <span style=\"color:#3b82f6\">Mittagspause!</span>", sub: "Wir sind kurz nicht erreichbar. Schau später wieder vorbei — bis dahin: viel Spaß beim Dino! 🦖" },
+    // MAP FEATURE: Kill-Switch-Reason — bewusst KEIN Dino-Game hier, weil ein
+    // "alles ist down"-Notfall was anderes signalisieren soll als der normale
+    // "grad geschlossen, spiel solang Dino"-Vibe der anderen Reasons.
+    killswitch:    { icon: "🛑", title: "🛑 Server Down 🛑", sub: "" },
   };
   const t = REASONS[reason] || defaults;
   const iconEl = document.getElementById("maint-icon");
@@ -25,11 +29,20 @@ window.applyMaintenanceReason = function(reason, defaults) {
   if (iconEl) iconEl.textContent = t.icon;
   if (titleEl) titleEl.innerHTML = t.title;
   if (subEl) subEl.innerHTML = t.sub;
+
+  // Dino-Canvas verstecken bei Kill Switch, sonst normal sichtbar lassen
+  document.querySelectorAll("canvas[id*='dino']").forEach(c => {
+    c.style.display = (reason === "killswitch") ? "none" : "";
+  });
 };
 
 window.initDinoGame = function(canvasId, color) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || canvas.dataset.inited) return;
+  // MAP FIX: falls der Kill Switch aktiv is, wurde das Canvas grad von
+  // applyMaintenanceReason() auf display:none gesetzt — dann brauchen wir das
+  // Dino-Game gar nicht erst starten (kein Sinn ein unsichtbares Canvas zu rendern).
+  if (canvas.style.display === "none") return;
   canvas.dataset.inited = "1";
   const ctx = canvas.getContext("2d");
   const W = canvas.width, H = canvas.height;
