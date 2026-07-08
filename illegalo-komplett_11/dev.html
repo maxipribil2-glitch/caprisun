@@ -402,6 +402,10 @@ button,input{font-family:'Inter',sans-serif;}
             <span class="ee-icon">🍽️</span>
             <span class="ee-label">Keine Mittagspause</span>
           </button>
+          <button class="emerg-btn" style="border-color:#7f1d1d;background:linear-gradient(135deg,rgba(127,29,29,.2),var(--sf));" onclick="activateKillSwitch()">
+            <span class="ee-icon">☠️</span>
+            <span class="ee-label">KILL SWITCH</span>
+          </button>
         </div>
         <button class="emerg-restore" onclick="restoreAll()">✅ Alles wieder aktivieren</button>
       </div>
@@ -973,6 +977,23 @@ window.toggleLieferantAvailability = async function(username) {
   } catch(e) { showToast("Fehler: "+e.message, true); }
 };
 
+// MAP FEATURE: Echter Kill-Switch — im Gegensatz zu setEmergency() (die nur
+// Shop/Admin/Lieferant killt) deaktiviert der HIER zusätzlich das komplette
+// Gamecenter (über gcConfig.maintenance), damit WIRKLICH gar nix mehr läuft
+// außer dem Dev Panel selbst. Für echte Notfälle (Sicherheitsvorfall, Missbrauch,
+// Server-Probleme, whatever) — nicht für den Alltag gedacht.
+window.activateKillSwitch = async function() {
+  const ok = await askConfirm("☠️", "KILL SWITCH aktivieren?",
+    "ALLES wird deaktiviert: Shop, Admin Panel, Lieferanten-Seite UND das komplette Gamecenter (Lobby + alle Games). NUR das Dev Panel bleibt erreichbar. Das ist die härteste Notfall-Option — nur nutzen wenn's wirklich brennt!",
+    "warn", "Ja, ALLES killen");
+  if (!ok) return;
+  try {
+    await setDoc(statusDocRef, { shop: false, admin: false, lieferant: false, reason: "killswitch" }, { merge: true });
+    await setDoc(doc(db, "gcConfig", "site"), { maintenance: true }, { merge: true });
+    showToast("☠️ KILL SWITCH aktiviert — alles außer Dev Panel is jetzt offline!");
+  } catch(e) { showToast("Fehler: "+e.message, true); }
+};
+
 window.setEmergency = async function(reason) {
   const labels = {
     ferien:       ["🌴", "Ferien-Modus aktivieren?", "Wir machen Ferien"],
@@ -992,7 +1013,11 @@ window.setEmergency = async function(reason) {
 window.restoreAll = async function() {
   try {
     await setDoc(statusDocRef, { shop: true, admin: true, lieferant: true, reason: null }, { merge: true });
-    showToast("Alle Webseiten wieder online! ✅");
+    // MAP: reaktiviert nebenbei auch das Gamecenter falls der Kill Switch aktiv war —
+    // schadet nix falls er's nicht war (setzt einfach maintenance:false, was eh der
+    // Normalzustand ist).
+    await setDoc(doc(db, "gcConfig", "site"), { maintenance: false }, { merge: true });
+    showToast("Alle Webseiten + Gamecenter wieder online! ✅");
   } catch(e) { showToast("Fehler: "+e.message, true); }
 };
 

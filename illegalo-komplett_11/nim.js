@@ -5,7 +5,7 @@ import { initMatch } from "./match.js";
 import { renderShopAd } from "./ads.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
-  getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp
+  getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
 import { awardGameReward } from "./gamocoin.js";
@@ -39,11 +39,46 @@ onAuthStateChanged(auth, (user) => {
     if (!currentRoom.piles) initPilesIfHost();
     maybeShowReaction(currentRoom);
     render();
+    armTurnTimeout();
   });
 });
 
 function isHost() { return currentRoom && currentRoom.players[0] === myUid; }
 function opponentUid() { return currentRoom.players.find(p => p !== myUid); }
+// MAP FIX (Timeout-Fallback): vorher konnte ein Spieler den Tab schließen ohne
+// "Verlassen" zu klicken, der Gegner blieb dann für IMMER in nem hängenden Match.
+// Jetzt: 60s pro Zug, danach automatischer Verlust — gleicher Transaction-Pattern
+// wie in wordchain.js, damit's keine Race Condition gibt falls beide Clients
+// gleichzeitig den Timeout auswerten.
+const TURN_TIMEOUT_MS = 60000;
+let turnTimeoutTimer;
+function armTurnTimeout() {
+  clearTimeout(turnTimeoutTimer);
+  if (!currentRoom || currentRoom.status !== "active" || !currentRoom.turnStartAt) return;
+  const elapsed = Date.now() - currentRoom.turnStartAt;
+  const remaining = TURN_TIMEOUT_MS - elapsed;
+  if (remaining <= 0) { resolveTurnTimeout(currentRoom.turn); return; }
+  turnTimeoutTimer = setTimeout(() => resolveTurnTimeout(currentRoom.turn), remaining + 500);
+}
+async function resolveTurnTimeout(timedOutUid) {
+  if (isSpectator || !currentRoom) return;
+  try {
+    let winnerUid = null;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const cur = snap.data();
+      if (!cur || cur.status !== "active" || cur.turn !== timedOutUid) return;
+      if (Date.now() - (cur.turnStartAt||0) < TURN_TIMEOUT_MS) return;
+      winnerUid = cur.players.find(p => p !== timedOutUid);
+      tx.update(roomRef, { status: "finished", winner: winnerUid });
+    });
+    if (winnerUid) {
+      addDoc(collection(db, "matchResults"), { game: "nim", players: currentRoom.players, playerNames: currentRoom.playerNames, winner: winnerUid, at: serverTimestamp() }).catch(()=>{});
+      if (winnerUid === myUid) awardGameReward(myUid, 100, "nim_win").catch(()=>{});
+    }
+  } catch(e) {}
+}
+
 function isMyTurn() { return currentRoom.status === "active" && currentRoom.turn === myUid; }
 
 async function initPilesIfHost() {

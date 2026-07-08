@@ -147,20 +147,21 @@ window.setVariant = (v) => {
   drawWheel(null);
 };
 
-// ── Chip-Auswahl ──
+// ── Bet-Einsatz (MAP FEATURE: manuell eintippen statt feste Chips, min. 10) ──
 function buildChips() {
-  const row = document.getElementById("chip-row");
-  row.innerHTML = CHIPS.map((c,i)=>`
-    <button class="chip-btn${c===selectedChip?" on":""}" data-chip="${c}"
-      style="background:${CHIP_COLORS[i]};color:#fff;"
-      onclick="selectChip(${c},this)">${c}
-    </button>`).join("");
+  const input = document.getElementById("bet-amount-input");
+  const confirmBtn = document.getElementById("bet-amount-confirm");
+  if (!input || !confirmBtn) return;
+  input.value = selectedChip;
+  const applyAmount = () => {
+    let val = parseInt(input.value, 10);
+    if (isNaN(val) || val < 10) { val = 10; input.value = 10; showToast("Mindesteinsatz ist 10 🪙", true); }
+    selectedChip = val;
+  };
+  confirmBtn.onclick = applyAmount;
+  input.addEventListener("blur", applyAmount);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") applyAmount(); });
 }
-window.selectChip = (val, btn) => {
-  selectedChip = val;
-  document.querySelectorAll(".chip-btn").forEach(b=>b.classList.remove("on"));
-  btn.classList.add("on");
-};
 
 // ── Betting Table ──
 function buildTable() {

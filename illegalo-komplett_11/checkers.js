@@ -5,7 +5,7 @@ import { app } from "./firebase-config.js";
 import { initMatch } from "./match.js";
 import { renderShopAd } from "./ads.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
 import { awardGameReward } from "./gamocoin.js";
 
@@ -41,12 +41,46 @@ onAuthStateChanged(auth, (user) => {
     currentRoom = snap.data();
     if (!currentRoom.board) initIfHost();
     maybeShowReaction(currentRoom);
+    armCheckersTimeout();
     render();
   });
 });
 
 function isHost() { return currentRoom && currentRoom.players[0] === myUid; }
 function opponentUid() { return currentRoom.players.find(p => p !== myUid); }
+
+// MAP FIX (Timeout-Fallback): 90s pro Zug, danach automatischer Verlust — gleiches
+// Prinzip wie chess.js.
+const CHECKERS_TIMEOUT_MS = 90000;
+let checkersTimeoutTimer;
+function armCheckersTimeout() {
+  clearTimeout(checkersTimeoutTimer);
+  if (!currentRoom || currentRoom.status !== "active" || !currentRoom.turnStartAt) return;
+  const remaining = CHECKERS_TIMEOUT_MS - (Date.now() - currentRoom.turnStartAt);
+  if (remaining <= 0) { resolveCheckersTimeout(); return; }
+  checkersTimeoutTimer = setTimeout(resolveCheckersTimeout, remaining + 500);
+}
+async function resolveCheckersTimeout() {
+  if (isSpectator || !currentRoom) return;
+  const timedOutColor = currentRoom.turn;
+  try {
+    let winnerUid = null;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const cur = snap.data();
+      if (!cur || cur.status !== "active") return;
+      if (Date.now() - (cur.turnStartAt||0) < CHECKERS_TIMEOUT_MS) return;
+      const timedOutUid = Object.entries(cur.colors||{}).find(([,c]) => c === timedOutColor)?.[0];
+      if (!timedOutUid) return;
+      winnerUid = cur.players.find(p => p !== timedOutUid);
+      tx.update(roomRef, { status: "finished", winner: winnerUid });
+    });
+    if (winnerUid) {
+      addDoc(collection(db, "matchResults"), { game: "checkers", players: currentRoom.players, playerNames: currentRoom.playerNames, winner: winnerUid, at: serverTimestamp() }).catch(()=>{});
+      if (winnerUid === myUid) awardGameReward(myUid, 100, "checkers_win").catch(()=>{});
+    }
+  } catch(e) {}
+}
 function myColor() { return isSpectator ? null : currentRoom.colors?.[myUid]; }
 function isMyTurn() { return !isSpectator && currentRoom.status === "active" && currentRoom.turn === myColor(); }
 

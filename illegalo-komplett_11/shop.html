@@ -132,6 +132,8 @@ textarea{resize:vertical;}
 .maint-title{font-size:1.5rem;font-weight:800;margin-bottom:.4rem;}
 .maint-sub{color:var(--mu);font-size:.9rem;margin-bottom:1.6rem;max-width:380px;}
 #dino-canvas{background:var(--sf);border:1.5px solid var(--bd);border-radius:14px;touch-action:none;}
+.hidden { display: none !important; }
+#account-modal-overlay.show { display: flex !important; }
 </style>
 <script src="dino-game.js"></script>
 </head>
@@ -143,6 +145,33 @@ textarea{resize:vertical;}
   <div class="maint-title" id="maint-title">Diese Seite ist gerade <span style="color:var(--in)">offline</span></div>
   <div class="maint-sub" id="maint-sub">Der Admin hat den Shop kurz ausgeschaltet. Spiel solang ne Runde Dino! 🦖</div>
   <canvas id="dino-canvas" width="320" height="160"></canvas>
+</div>
+
+<div id="account-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;align-items:center;justify-content:center;">
+  <div style="background:var(--s1,#1a1c26);border-radius:14px;padding:1.5rem;max-width:340px;width:90%;position:relative;">
+    <button onclick="closeAccountModal()" style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--mu);font-size:1.2rem;cursor:pointer;">✕</button>
+    <div style="font-weight:800;font-size:1.1rem;margin-bottom:.3rem;">🎮 Illegalo Account</div>
+    <div style="font-size:.75rem;color:var(--mu);margin-bottom:1rem;">Gleicher Login wie im Gamecenter — ein Account für beides!</div>
+    <div id="account-error" style="color:#ef4444;font-size:.78rem;margin-bottom:.6rem;min-height:16px;"></div>
+
+    <div id="account-login-form">
+      <div class="fg"><label>Username</label><input id="account-login-username" placeholder="dein-username"/></div>
+      <div class="fg"><label>Passwort</label><input id="account-login-password" type="password" placeholder="••••••"/></div>
+      <button onclick="doAccountLogin()" style="width:100%;margin-top:.5rem;">Einloggen</button>
+      <div style="text-align:center;margin-top:.8rem;font-size:.78rem;">
+        Noch kein Account? <a href="#" onclick="switchToRegister();return false;" style="color:var(--in);text-decoration:underline;">Registrieren</a>
+      </div>
+    </div>
+
+    <div id="account-register-form" class="hidden">
+      <div class="fg"><label>Username wählen</label><input id="account-reg-username" placeholder="min. 2 Zeichen, nur a-z 0-9 _"/></div>
+      <div class="fg"><label>Passwort wählen</label><input id="account-reg-password" type="password" placeholder="min. 6 Zeichen"/></div>
+      <button onclick="doAccountRegister()" style="width:100%;margin-top:.5rem;">Account erstellen</button>
+      <div style="text-align:center;margin-top:.8rem;font-size:.78rem;">
+        Schon registriert? <a href="#" onclick="switchToLogin();return false;" style="color:var(--in);text-decoration:underline;">Einloggen</a>
+      </div>
+    </div>
+  </div>
 </div>
 <div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.10</div>
 
@@ -158,6 +187,8 @@ textarea{resize:vertical;}
     <button class="nb" id="btn-wish" onclick="showPage('wish')">⭐ Wunschliste</button>
     <button class="nb" id="btn-theme" onclick="toggleTheme()" title="Dark/Light wechseln" style="padding:6px 10px;font-size:1rem;">☀️</button>
     <button class="nb" id="lang-toggle" onclick="window._toggleLang && window._toggleLang()" style="padding:6px 10px;font-size:.78rem;font-weight:700;">🇬🇧 EN</button>
+    <span id="account-who" style="display:none;font-size:.72rem;color:var(--mu);align-self:center;padding:0 6px;"></span>
+    <button class="nb" id="account-btn" onclick="openAccountModal()">🔑 Login</button>
   </div>
   <div class="conn"><div class="conn-dot" id="conn-dot"></div><span id="conn-label" style="color:var(--mu)">…</span></div>
 </header>
@@ -171,6 +202,9 @@ textarea{resize:vertical;}
   <div class="gc-ad" id="gc-ad-post"></div>
   <div class="crd">
     <div class="crd-t">👤 Kundendaten</div>
+    <div id="voucher-banner" style="display:none;background:linear-gradient(135deg,#78350f,#7c2d12);border-radius:10px;padding:.7rem .9rem;margin-bottom:.8rem;font-size:.82rem;font-weight:700;">
+      🎰 Jackpot-Voucher aktiv — diese Bestellung ist <u>ohne Lieferkosten</u>!
+    </div>
     <div class="fg"><label>Name *</label><input id="c-name" placeholder="Max Mustermann"/></div>
     <div class="fg"><label>Lieferadresse *</label><input id="c-address" placeholder="Musterstraße 1, 80333 München"/></div>
     <div style="text-align:right;margin-top:-.3rem"><button onclick="clearSavedCustomer()" style="background:none;border:none;color:var(--mu);font-size:.72rem;cursor:pointer;text-decoration:underline;padding:0">Andere Person? Felder leeren</button></div>
@@ -251,7 +285,9 @@ textarea{resize:vertical;}
 
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs, updateDoc }
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut }
+                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs, updateDoc, getDoc }
                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { toggleLang, applyLang } from "./i18n.js";
 window._toggleLang = toggleLang;
@@ -298,6 +334,128 @@ window.addEventListener("offline", () => { isOnline = false; updateOfflineBanner
 function initFirebase() {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+const auth = getAuth(app);
+
+// MAP FEATURE: gemeinsames Login-System mit dem Gamecenter — gleiches
+// username@mpgames.local-Schema wie in auth.js, damit EIN Account für
+// Shop UND Gamecenter funktioniert (in beide Richtungen).
+function usernameToEmail(username) {
+  const safe = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+  return `${safe}@mpgames.local`;
+}
+function friendlyAuthError(err) {
+  const code = err.code || "";
+  if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")) {
+    return "Login passt nicht — Username oder Passwort falsch.";
+  }
+  if (code.includes("email-already-in-use")) return "Dieser Username ist schon vergeben.";
+  if (code.includes("weak-password")) return "Passwort zu kurz — min. 6 Zeichen.";
+  if (code.includes("invalid-email")) return "Username darf nur Buchstaben, Zahlen und _ enthalten.";
+  return "Was lief schief: " + (err.message || code);
+}
+
+let myUid = null, myUsername = null;
+
+onAuthStateChanged(auth, async (user) => {
+  const loginBtn = document.getElementById("account-btn");
+  const whoLabel = document.getElementById("account-who");
+  if (user) {
+    myUid = user.uid;
+    myUsername = user.displayName || user.email.split("@")[0];
+    if (loginBtn) loginBtn.textContent = "🚪 Logout";
+    if (whoLabel) { whoLabel.textContent = `eingeloggt als ${myUsername}`; whoLabel.style.display = ""; }
+    // Name-Feld automatisch vorausfüllen, falls noch leer
+    const nameInput = document.getElementById("c-name");
+    if (nameInput && !nameInput.value) nameInput.value = myUsername;
+    checkFreeDeliveryVoucher();
+  } else {
+    myUid = null; myUsername = null;
+    if (loginBtn) loginBtn.textContent = "🔑 Login";
+    if (whoLabel) whoLabel.style.display = "none";
+    hideVoucherBanner();
+  }
+});
+
+window.openAccountModal = function() {
+  if (myUid) {
+    // Bereits eingeloggt -> Logout
+    signOut(auth);
+    return;
+  }
+  document.getElementById("account-modal-overlay").classList.add("show");
+  document.getElementById("account-error").textContent = "";
+};
+window.closeAccountModal = function() {
+  document.getElementById("account-modal-overlay").classList.remove("show");
+};
+window.switchToRegister = function() {
+  document.getElementById("account-login-form").classList.add("hidden");
+  document.getElementById("account-register-form").classList.remove("hidden");
+  document.getElementById("account-error").textContent = "";
+};
+window.switchToLogin = function() {
+  document.getElementById("account-register-form").classList.add("hidden");
+  document.getElementById("account-login-form").classList.remove("hidden");
+  document.getElementById("account-error").textContent = "";
+};
+
+window.doAccountLogin = async function() {
+  const username = document.getElementById("account-login-username").value.trim();
+  const password = document.getElementById("account-login-password").value;
+  const errEl = document.getElementById("account-error");
+  errEl.textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, usernameToEmail(username), password);
+    closeAccountModal();
+    showToast(`Willkommen zurück, ${username}! 👋`);
+  } catch (err) { errEl.textContent = friendlyAuthError(err); }
+};
+
+window.doAccountRegister = async function() {
+  const username = document.getElementById("account-reg-username").value.trim();
+  const password = document.getElementById("account-reg-password").value;
+  const errEl = document.getElementById("account-error");
+  errEl.textContent = "";
+  if (username.length < 2) { errEl.textContent = "Username muss mind. 2 Zeichen haben."; return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) { errEl.textContent = "Nur Buchstaben, Zahlen und _ im Username erlaubt."; return; }
+  if (password.length < 6) { errEl.textContent = "Passwort zu kurz — min. 6 Zeichen."; return; }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, usernameToEmail(username), password);
+    await updateProfile(cred.user, { displayName: username });
+    // MAP: GENAU das gleiche User-Doc-Schema wie im Gamecenter (auth.js) — so
+    // funktioniert der frisch registrierte Account sofort auch im Gamecenter,
+    // inkl. 1000 Start-Coins, ohne dass man sich dort nochmal extra registrieren muss.
+    await setDoc(doc(db, "users", cred.user.uid), {
+      username,
+      gamocoins: 1000,
+      lastDailyBonus: null,
+      createdAt: serverTimestamp()
+    });
+    closeAccountModal();
+    showToast(`Account erstellt — willkommen, ${username}! 🎉 (funktioniert auch im Gamecenter)`);
+  } catch (err) { errEl.textContent = friendlyAuthError(err); }
+};
+
+// MAP FEATURE: Jackpot-Voucher-Check ("keine zusätzlichen Lieferkosten" vom
+// einarmigen Banditen im Gamecenter). Wird nur EINMAL bei EINER Bestellung
+// eingelöst — Flag wird direkt nach erfolgreichem Posten der Order zurückgesetzt.
+let hasVoucher = false;
+async function checkFreeDeliveryVoucher() {
+  if (!myUid) return;
+  try {
+    const snap = await getDoc(doc(db, "users", myUid));
+    hasVoucher = !!(snap.exists() && snap.data().freeDeliveryVoucher === true);
+    if (hasVoucher) showVoucherBanner(); else hideVoucherBanner();
+  } catch (e) { hasVoucher = false; }
+}
+function showVoucherBanner() {
+  const el = document.getElementById("voucher-banner");
+  if (el) el.style.display = "";
+}
+function hideVoucherBanner() {
+  const el = document.getElementById("voucher-banner");
+  if (el) el.style.display = "none";
+}
 const col = collection(db, "orders");
 
 // ── Offline-Queue Flush (braucht col + getNextOrderNumber, die erst hier existieren) ──
@@ -528,6 +686,9 @@ window.postOrder = async () => {
     note: document.getElementById("d-note").value.trim(),
     status: "Verarbeitung",
   };
+  // MAP FEATURE: Gratis-Lieferung-Voucher (Jackpot vom einarmigen Banditen) an
+  // die Bestellung anhängen, damit Admin/Lieferant sofort sehen "keine Lieferkosten!"
+  if (hasVoucher) orderPayload.freeDeliveryVoucher = true;
 
   // ── Offline-Fallback ──
   if (!isOnline) {
@@ -546,6 +707,13 @@ window.postOrder = async () => {
   try {
     const orderNumber = await getNextOrderNumber();
     await addDoc(col, { ...orderPayload, orderNumber, created: serverTimestamp() });
+    // MAP FEATURE: Voucher SOFORT nach erfolgreichem Posten konsumieren, damit er
+    // wirklich nur für GENAU diese eine Bestellung gilt und nicht nochmal einlösbar ist.
+    if (hasVoucher && myUid) {
+      hasVoucher = false;
+      hideVoucherBanner();
+      updateDoc(doc(db, "users", myUid), { freeDeliveryVoucher: false }).catch(()=>{});
+    }
     localStorage.setItem("illegalo_last_customer", JSON.stringify({name, address}));
     localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
     localStorage.setItem("illegalo_last_order", JSON.stringify({

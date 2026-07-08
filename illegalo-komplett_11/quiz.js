@@ -59,12 +59,49 @@ onAuthStateChanged(auth, (user) => {
     if (!currentRoom.currentQuestion) initQuestionIfHost();
     if (currentRoom.round !== prevRound) answeredThisRound = false;
     maybeShowReaction(currentRoom);
+    armQuizTimeout();
     render();
   });
 });
 
 function isHost() { return currentRoom && currentRoom.players[0] === myUid; }
 function opponentUid() { return currentRoom.players.find(p => p !== myUid); }
+
+// MAP FIX (Timeout-Fallback): falls beide Spieler mitten in ner Runde den Tab
+// schließen ohne "Verlassen", blieb das Match vorher für immer offen. Jetzt: 40s
+// pro Frage, danach automatischer Verlust für wer nicht geantwortet hat (bei
+// beiden untätig = einfach der Host gewinnt als Fallback, besser als ewig hängen).
+const QUIZ_TIMEOUT_MS = 40000;
+let quizTimeoutTimer;
+function armQuizTimeout() {
+  clearTimeout(quizTimeoutTimer);
+  if (!currentRoom || currentRoom.status !== "active" || currentRoom.roundResolved) return;
+  const startedAt = currentRoom.questionStartAt || Date.now();
+  const remaining = QUIZ_TIMEOUT_MS - (Date.now() - startedAt);
+  if (remaining <= 0) { resolveQuizTimeout(); return; }
+  quizTimeoutTimer = setTimeout(resolveQuizTimeout, remaining + 500);
+}
+async function resolveQuizTimeout() {
+  if (isSpectator || !currentRoom) return;
+  const oppUid = opponentUid();
+  try {
+    let winnerUid = null;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const cur = snap.data();
+      if (!cur || cur.status !== "active" || cur.roundResolved) return;
+      if (Date.now() - (cur.questionStartAt||0) < QUIZ_TIMEOUT_MS) return;
+      const mine = cur.answers?.[myUid], theirs = cur.answers?.[oppUid];
+      if (mine && theirs) return; // beide haben schon geantwortet, normale Auflösung läuft eh
+      winnerUid = mine && !theirs ? myUid : (!mine && theirs ? oppUid : cur.players[0]);
+      tx.update(roomRef, { status: "finished", winner: winnerUid });
+    });
+    if (winnerUid) {
+      addDoc(collection(db, "matchResults"), { game: "quiz", players: currentRoom.players, playerNames: currentRoom.playerNames, winner: winnerUid, at: serverTimestamp() }).catch(()=>{});
+      if (winnerUid === myUid) awardGameReward(myUid, 100, "quiz_win").catch(()=>{});
+    }
+  } catch(e) {}
+}
 
 async function initQuestionIfHost() {
   if (!isHost() || currentRoom.status !== "active") return;

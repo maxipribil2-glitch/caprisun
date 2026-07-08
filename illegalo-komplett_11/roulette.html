@@ -7,6 +7,12 @@
 <title>ILLEGALO GAMECENTER — Roulette</title>
 <link rel="stylesheet" href="style.css">
 <style>
+/* MAP FEATURE: Roulette geht auf iPad im Querformat in den Fullscreen-Modus —
+   statt der normalen max-width:760px nutzt's da fast die komplette Bildschirmbreite. */
+@media (min-width: 768px) and (orientation: landscape) {
+  .wrap { max-width: 96vw !important; padding: 12px 20px; }
+  .bet-table { font-size: 15px; }
+}
 /* ── Roulette-specific styles on top of retro style.css ── */
 .rl-layout { display:grid; grid-template-columns:1fr; gap:14px; }
 @media(min-width:700px){ .rl-layout{ grid-template-columns:280px 1fr; } }
@@ -96,7 +102,11 @@
 
         <div style="margin:10px 0;">
           <div style="font-size:13px;color:var(--mu);margin-bottom:6px;">Chip wählen:</div>
-          <div class="chip-row" id="chip-row"></div>
+          <div id="bet-input-row" style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;">
+            <label for="bet-amount-input" style="font-family:'Press Start 2P',monospace;font-size:10px;">Einsatz:</label>
+            <input id="bet-amount-input" type="number" min="10" step="1" value="10" style="width:110px;padding:8px;font-size:16px;text-align:center;">
+            <button id="bet-amount-confirm" style="padding:8px 14px;">✅ Setzen</button>
+          </div>
         </div>
 
         <div style="display:flex;gap:6px;margin-top:10px;">

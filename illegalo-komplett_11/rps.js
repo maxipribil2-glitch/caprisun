@@ -4,7 +4,7 @@ import { app } from "./firebase-config.js";
 import { initMatch } from "./match.js";
 import { renderShopAd } from "./ads.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
 import { awardGameReward } from "./gamocoin.js";
 
@@ -38,11 +38,51 @@ onAuthStateChanged(auth, (user) => {
     currentRoom = snap.data();
     if (currentRoom.round !== prevRound) pickedThisRound = false;
     maybeShowReaction(currentRoom);
+    armRoundTimeout();
     render();
   });
 });
 
 function opponentUid() { return currentRoom.players.find(p => p !== myUid); }
+
+// MAP FIX (Timeout-Fallback): RPS hat keinen klassischen "wer ist dran"-Turn (beide
+// wählen gleichzeitig), heißt der übliche Turn-Timeout-Pattern greift hier nicht 1:1.
+// Stattdessen: falls einer der beiden 45s nach Rundenstart NOCH NICHT gewählt hat,
+// verliert automatisch derjenige der nicht gewählt hat (Auto-Forfeit).
+const ROUND_TIMEOUT_MS = 45000;
+let roundTimeoutTimer;
+function armRoundTimeout() {
+  clearTimeout(roundTimeoutTimer);
+  if (!currentRoom || currentRoom.status !== "active" || currentRoom.roundResolved) return;
+  const startedAt = currentRoom.roundStartedAt || Date.now();
+  const remaining = ROUND_TIMEOUT_MS - (Date.now() - startedAt);
+  if (remaining <= 0) { resolveRoundTimeout(); return; }
+  roundTimeoutTimer = setTimeout(resolveRoundTimeout, remaining + 500);
+}
+async function resolveRoundTimeout() {
+  if (isSpectator || !currentRoom) return;
+  const oppUid = opponentUid();
+  try {
+    let winnerUid = null;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const cur = snap.data();
+      if (!cur || cur.status !== "active" || cur.roundResolved) return;
+      if (Date.now() - (cur.roundStartedAt||0) < ROUND_TIMEOUT_MS) return;
+      const mine = cur.picks?.[myUid], theirs = cur.picks?.[oppUid];
+      // Nur weiterlaufen falls WIRKLICH einer nicht gewählt hat (sonst kann's sein
+      // dass die Runde grad normal resolved wird, kein Auto-Forfeit nötig)
+      if (mine && theirs) return;
+      const laggingUid = !mine ? myUid : oppUid;
+      winnerUid = cur.players.find(p => p !== laggingUid);
+      tx.update(roomRef, { status: "finished", winner: winnerUid });
+    });
+    if (winnerUid) {
+      addDoc(collection(db, "matchResults"), { game: "rps", players: currentRoom.players, playerNames: currentRoom.playerNames, winner: winnerUid, at: serverTimestamp() }).catch(()=>{});
+      if (winnerUid === myUid) awardGameReward(myUid, 100, "rps_win").catch(()=>{});
+    }
+  } catch(e) {}
+}
 
 function render() {
   const room = currentRoom;

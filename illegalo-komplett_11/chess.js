@@ -59,12 +59,47 @@ onAuthStateChanged(auth, (user) => {
     currentRoom = snap.data();
     if (!currentRoom.board) initBoardIfHost();
     maybeShowReaction(currentRoom);
+    armChessTimeout();
     render();
   });
 });
 
 function isHost() { return currentRoom && currentRoom.players[0] === myUid; }
 function opponentUid() { return currentRoom.players.find(p => p !== myUid); }
+
+// MAP FIX (Timeout-Fallback): vorher konnte ein Match für immer offen bleiben
+// wenn ein Spieler den Tab schließt ohne "Verlassen". Schach braucht n bisschen
+// mehr Bedenkzeit als die anderen Games, deshalb 90s statt 60s.
+const CHESS_TIMEOUT_MS = 90000;
+let chessTimeoutTimer;
+function armChessTimeout() {
+  clearTimeout(chessTimeoutTimer);
+  if (!currentRoom || currentRoom.status !== "active" || !currentRoom.turnStartAt) return;
+  const remaining = CHESS_TIMEOUT_MS - (Date.now() - currentRoom.turnStartAt);
+  if (remaining <= 0) { resolveChessTimeout(); return; }
+  chessTimeoutTimer = setTimeout(resolveChessTimeout, remaining + 500);
+}
+async function resolveChessTimeout() {
+  if (isSpectator || !currentRoom) return;
+  const timedOutColor = currentRoom.turn;
+  try {
+    let winnerUid = null;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const cur = snap.data();
+      if (!cur || cur.status !== "active") return;
+      if (Date.now() - (cur.turnStartAt||0) < CHESS_TIMEOUT_MS) return;
+      const timedOutUid = Object.entries(cur.colors||{}).find(([,c]) => c === timedOutColor)?.[0];
+      if (!timedOutUid) return;
+      winnerUid = cur.players.find(p => p !== timedOutUid);
+      tx.update(roomRef, { status: "finished", winner: winnerUid });
+    });
+    if (winnerUid) {
+      addDoc(collection(db, "matchResults"), { game: "chess", players: currentRoom.players, playerNames: currentRoom.playerNames, winner: winnerUid, at: serverTimestamp() }).catch(()=>{});
+      if (winnerUid === myUid) awardGameReward(myUid, 100, "chess_win").catch(()=>{});
+    }
+  } catch(e) {}
+}
 function myColor() {
   if (isSpectator) return null;
   return currentRoom.colors?.[myUid] || null;
