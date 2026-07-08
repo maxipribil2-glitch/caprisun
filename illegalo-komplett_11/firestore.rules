@@ -209,7 +209,7 @@ service cloud.firestore {
                    && (!('scheduleEnabled' in request.resource.data) || request.resource.data.scheduleEnabled is bool)
                    && (!('reason' in request.resource.data)
                        || request.resource.data.reason == null
-                       || request.resource.data.reason in ['ferien','krank','geschlossen','mittagspause']);
+                       || request.resource.data.reason in ['ferien','krank','geschlossen','mittagspause','killswitch']);
     }
 
     // ════════════════════════════════════════════════════════
