@@ -108,7 +108,13 @@ onAuthStateChanged(auth, (user) => {
     sessionStorage.removeItem("gc_just_logged_in");
     sessionStorage.removeItem("gc_new_user");
     if (justLoggedIn) {
-      const params = new URLSearchParams({ u: username, new: isNewUser ? "1" : "0" });
+      // MAP FIX (Deep Check Bug): "username" existierte in diesem Scope gar nicht
+      // (das war nur eine lokale Variable in den submit-Handlern oben) — hätte bei
+      // JEDEM Login/Register einen ReferenceError geworfen und den Redirect zu
+      // intro.html komplett verhindert (User blieb einfach auf der Login-Seite
+      // hängen, ohne sichtbare Fehlermeldung). Jetzt: echter Anzeigename vom
+      // gerade eingeloggten Firebase-User.
+      const params = new URLSearchParams({ u: user.displayName || "", new: isNewUser ? "1" : "0" });
       window.location.href = "intro.html?" + params.toString();
     } else {
       window.location.href = "lobby.html";

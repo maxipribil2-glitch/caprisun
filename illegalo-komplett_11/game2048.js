@@ -175,7 +175,10 @@ async function submitScore() {
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {
-    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    // MAP FIX (Deep Check Bug): "lbEl" existierte in diesem Scope nicht (gehörte zu
+    // loadLeaderboard()) — hätte einen ReferenceError geworfen statt der Fehlermeldung.
+    const lbErrEl = document.getElementById("leaderboard");
+    if (lbErrEl) lbErrEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
     console.error("[2048] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index:", e);
   }
 }

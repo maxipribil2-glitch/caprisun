@@ -131,7 +131,11 @@ async function gameOver() {
     // MAP FIX: vorher stiller catch(e){} — Leaderboard blieb für immer bei "Lade..."
     // hängen wenn die Query failte (meistens fehlender Firestore Composite-Index für
     // where()+orderBy() zusammen). Jetzt: sichtbare Fehlermeldung + Console-Hinweis.
-    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    // MAP FIX (Deep Check Bug): "lbEl" existierte in diesem Scope gar nicht (das war
+    // eine Variable aus loadLeaderboard()) — hätte einen ReferenceError geworfen statt
+    // die Fehlermeldung zu zeigen. Jetzt: Element direkt neu geholt.
+    const lbErrEl = document.getElementById("leaderboard");
+    if (lbErrEl) lbErrEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
     console.error("[flappy] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index (Konsole-Link im Error oben checken):", e);
   }
 }

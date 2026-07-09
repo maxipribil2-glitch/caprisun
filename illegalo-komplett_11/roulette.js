@@ -425,6 +425,15 @@ function handleTableUpdate(data) {
     if (phaseLabel) phaseLabel.textContent = "🌀 BALL ROLLT…";
     if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = "🌀 LÄUFT…"; }
     if (lastPhase !== "spinning" && data.result != null) {
+      // MAP FIX (Deep Check Bug — Multiplayer-Wetten): vorher rief NUR der Client der
+      // die Phasenwechsel-Transaction in advancePhase() gewonnen hat commitBets() auf
+      // (nur für SEINE eigenen Wetten). Bei 2+ gleichzeitig wettenden Spielern wurden
+      // alle anderen NIE abgerechnet (kein Abzug, kein Gewinn). Jetzt: JEDER Client
+      // committed hier zentral seine eigenen Wetten sobald das Ergebnis feststeht,
+      // unabhängig davon wer die Transaction gewonnen hat. commitBets() ist bereits
+      // idempotent über "committedRounds" + roundKey, ruft also pro Runde nur einmal
+      // pro Client wirklich was ab (und tut nichts falls keine eigenen Wetten liegen).
+      commitBets(data.result, "round:" + data.phaseEnds);
       animateSpin(data.result, () => showResult(data));
     }
   } else if (currentPhase === "result") {
@@ -469,9 +478,10 @@ async function advancePhase(data) {
         wonTransaction = true;
       });
     } catch (e) {}
-    if (wonTransaction) {
-      await commitBets(result, "round:" + (data.phaseEnds || now));
-    }
+    // MAP FIX (Deep Check Bug): commitBets() lief hier vorher NUR für den Client der
+    // die Transaction gewonnen hat — jetzt zentral in handleTableUpdate() für JEDEN
+    // Client beim Beobachten von phase:"spinning" (siehe dort für Details).
+    void wonTransaction;
   } else if (data.phase === "spinning") {
     try {
       await runTransaction(db, async (tx) => {
@@ -635,7 +645,12 @@ window.requestSpin = async () => {
     result,
     variant
   });
-  await commitBets(result, "spin:" + now);
+  // MAP FIX (Deep Check Bug): commitBets() nicht mehr direkt hier mit eigenem
+  // "spin:"-Key aufrufen — das lief unter einem ANDEREN roundKey als der zentrale
+  // Commit in handleTableUpdate() ("round:"+phaseEnds), hätte also zu einer
+  // DOPPELTEN Abbuchung/Auszahlung für den Spieler geführt der auf "Jetzt drehen"
+  // klickt. Der zentrale Commit in handleTableUpdate() erledigt das jetzt für
+  // wirklich jeden Client (inkl. diesen hier) genau einmal pro Runde.
   void data;
 };
 
