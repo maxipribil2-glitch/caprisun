@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Täglicher Spin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+(function(){ if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light"); })();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){ btn.textContent = isLight ? "🌙" : "☀️"; });
+};
+</script>
+<div class="wrap" style="max-width:400px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:13px;"><span class="accent-dot" style="background:var(--am);"></span>Täglicher Spin</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+  <div class="panel center">
+    <div id="slot-machine" style="background:#1a1c26;border:4px solid #f59e0b;border-radius:16px;padding:20px;margin-bottom:16px;">
+      <div id="reels-row" style="display:flex;gap:8px;justify-content:center;margin-bottom:10px;">
+        <div class="reel" id="reel-0">🍒</div>
+        <div class="reel" id="reel-1">🍋</div>
+        <div class="reel" id="reel-2">🔔</div>
+      </div>
+      <div id="jackpot-label" style="font-family:'Press Start 2P',monospace;font-size:9px;color:#f59e0b;">JACKPOT: 7️⃣ 7️⃣ 7️⃣ = KEINE LIEFERKOSTEN!</div>
+    </div>
+    <button id="spin-btn" style="width:100%;font-size:16px;padding:14px;">🎰 DREHEN</button>
+    <div id="status" style="margin-top:12px;font-size:14px;"></div>
+    <div id="cooldown-info" style="margin-top:8px;font-size:12px;color:var(--sub,#888);"></div>
+    <div class="hint">Nur 1x pro Tag. Meistens Coins (max. 10.000), ganz selten der Jackpot für Gratis-Lieferung!</div>
+  </div>
+  <div class="shop-ad" id="shop-ad"></div>
+</div>
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0
+<style>
+.hidden{display:none;}
+.reel{width:70px;height:70px;background:#0c1420;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:36px;border:2px solid #3a3f58;}
+.reel.spinning{animation:mapReelSpin .1s linear infinite;}
+@keyframes mapReelSpin{0%{transform:translateY(0);}50%{transform:translateY(-6px);}100%{transform:translateY(0);}}
+</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="coinBadge.js"></script>
+<script type="module" src="slots.js"></script>
+</body>
+</html>

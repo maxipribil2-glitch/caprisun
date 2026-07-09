@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Initialising...</title>
+<style>
+  html,body{margin:0;padding:0;background:#050608;overflow:hidden;height:100%;}
+  #matrix-canvas{position:fixed;top:0;left:0;width:100%;height:100%;}
+  #intro-text{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;font-family:'Press Start 2P','VT323',monospace;
+    color:#3ef07a;text-shadow:0 0 8px #3ef07a,0 0 16px #3ef07a;
+    z-index:5;width:90%;
+  }
+  #intro-line1{font-size:14px;letter-spacing:2px;opacity:.85;}
+  #intro-line2{font-size:20px;margin-top:14px;min-height:28px;}
+  .blink{animation:blink 1s steps(2) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+</style>
+<script type="module">
+// MAP — Daily Bonus wird jetzt automatisch beim Login gecheckt & gecrabbt, kein
+// manueller Button-Klick auf Roulette mehr nötig. Der 24h-Timestamp-Check in
+// claimDailyBonus() verhindert Doppel-Vergabe falls später trotzdem nochmal auf
+// Roulette der Button gedrückt wird — dann kommt einfach "zu früh" zurück.
+import { app } from "./firebase-config.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { claimDailyBonus } from "./gamocoin.js";
+
+const auth = getAuth(app);
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  const res = await claimDailyBonus(user.uid);
+  if (res.claimed) {
+    // Wird als sessionStorage-Flag gespeichert, damit die Lobby direkt danach nen
+    // Toast zeigen kann ("🎁 Daily Bonus abgeholt! +1000 🪙") statt dass es hier
+    // im Intro-Screen ungesehen verpufft.
+    sessionStorage.setItem("gc_daily_bonus_claimed", String(res.amount));
+  }
+});
+</script>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+<div id="intro-text">
+  <div id="intro-line1">INITIALISING<span class="blink">...</span></div>
+  <div id="intro-line2"></div>
+</div>
+
+<div style="position:fixed;bottom:12px;left:16px;font-family:'Caveat',cursive;font-size:23px;color:#3ef07a;z-index:5;">MAP</div>
+
+<script>
+// MAP — Matrix-Style Intro nach dem Login. Läuft ~2.8s, zeigt dann
+// "Welcome back {username}" und leitet automatisch zur Lobby weiter.
+const params = new URLSearchParams(window.location.search);
+const username = params.get("u") || "Spieler";
+const isNewUser = params.get("new") === "1";
+const canvas = document.getElementById("matrix-canvas");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const CHARS = "アイウエオカキクケコサシスセソタチツテト0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const fontSize = 16;
+let columns = Math.floor(canvas.width / fontSize);
+let drops = Array(columns).fill(1);
+
+function draw() {
+  ctx.fillStyle = "rgba(5,6,8,0.08)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#3ef07a";
+  ctx.font = fontSize + "px monospace";
+  for (let i = 0; i < drops.length; i++) {
+    const text = CHARS[Math.floor(Math.random() * CHARS.length)];
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  }
+}
+
+// MAP FIX: requestAnimationFrame statt setInterval(33ms) — läuft smoother mit dem
+// Browser-Render-Zyklus mit, ruckelt weniger auf schwächeren Handys. Zusätzlich
+// throttled auf ~30fps damit's nicht unnötig CPU zieht.
+let running = true;
+let lastFrame = 0;
+function loop(ts) {
+  if (!running) return;
+  if (ts - lastFrame > 33) { draw(); lastFrame = ts; }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// MAP FIX: Fallback falls kein Username übergeben wurde (z.B. wer ruft intro.html
+// direkt ohne ?u= auf) — schickt sofort zur Lobby statt sinnlos "Spieler" anzuzeigen.
+if (!params.get("u")) {
+  window.location.href = "lobby.html";
+}
+
+// ── Text-Sequenz ──
+let redirected = false;
+function goToLobby() {
+  if (redirected) return;
+  redirected = true;
+  running = false;
+  window.location.href = "lobby.html";
+}
+
+setTimeout(() => {
+  document.getElementById("intro-line2").textContent = isNewUser
+    ? `Willkommen, ${username} 🎉`
+    : `Welcome back, ${username} 👋`;
+}, 1800);
+
+setTimeout(goToLobby, 3200);
+
+// Skip-Möglichkeit falls wer's eilig hat — Tap/Klick überspringt sofort
+document.body.addEventListener("pointerdown", goToLobby);
+</script>
+
+</body>
+</html>

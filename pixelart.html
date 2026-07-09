@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Pixel-Art-Painter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+(function(){ if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light"); })();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){ btn.textContent = isLight ? "🌙" : "☀️"; });
+};
+</script>
+<div class="wrap" style="max-width:420px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:13px;"><span class="accent-dot" style="background:var(--am);"></span>Pixel-Art-Painter</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+  <div class="panel center">
+    <div class="game-hud"><span id="timer">⏱️ 45s</span><span id="match-pct">Genauigkeit: 0%</span></div>
+    <div style="display:flex;gap:10px;justify-content:center;margin:10px 0;">
+      <div>
+        <div class="sub" style="font-size:12px;margin-bottom:4px;">Vorlage</div>
+        <div id="reference-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:1px;width:140px;"></div>
+      </div>
+      <div>
+        <div class="sub" style="font-size:12px;margin-bottom:4px;">Dein Bild</div>
+        <div id="paint-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:1px;width:140px;"></div>
+      </div>
+    </div>
+    <div id="palette" style="display:flex;gap:6px;justify-content:center;margin-bottom:10px;flex-wrap:wrap;"></div>
+    <div id="status" style="margin-bottom:8px;"></div>
+    <button id="restart-btn" class="hidden">Nochmal</button>
+    <div class="hint">Male das 8x8-Pixelbild möglichst genau nach, bevor die Zeit abläuft.</div>
+  </div>
+  <div class="panel"><h2>🏆 Top 5</h2><ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul></div>
+  <div class="shop-ad" id="shop-ad"></div>
+</div>
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0
+<style>
+.hidden{display:none;}
+.pixel-cell{aspect-ratio:1/1;cursor:pointer;border:1px solid rgba(255,255,255,.05);}
+.palette-swatch{width:28px;height:28px;border-radius:6px;cursor:pointer;border:2px solid transparent;}
+.palette-swatch.active{border-color:#f59e0b;}
+</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="coinBadge.js"></script>
+<script type="module" src="pixelart.js"></script>
+</body>
+</html>
