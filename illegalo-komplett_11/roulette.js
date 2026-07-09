@@ -73,6 +73,7 @@ onAuthStateChanged(auth, async (user) => {
   buildChips();
   joinTable();
   startWheelIdle();
+  await loadRoulFavorites();
   listenOnlinePlayersForInvite();
   document.getElementById("leave-btn").addEventListener("click", leaveTable);
 });
@@ -81,20 +82,51 @@ onAuthStateChanged(auth, async (user) => {
 // zocken. Läuft über die gleiche "invites"-Collection wie bei den anderen Games,
 // aber mit game:"roulette" + tableId statt roomId — beim Annehmen landet der
 // eingeladene Spieler direkt auf roulette.html?table=DEIN_TISCH.
+let roulFavorites = new Set();
+let roulShowAllOnline = false;
+
+async function loadRoulFavorites() {
+  try {
+    const snap = await getDoc(doc(db, "gcFavorites", myUid));
+    roulFavorites = new Set(snap.exists() ? (snap.data().uids || []) : []);
+  } catch (e) {}
+}
+
+// MAP FEATURE (Punkt 5): standardmäßig nur Freunde (aus der Favoriten-Liste)
+// zum Einladen vorschlagen statt JEDEM online Spieler — bei größer werdender
+// Gruppe cleaner. "Alle anzeigen"-Toggle bleibt für den Fall dass mans doch braucht.
 function listenOnlinePlayersForInvite() {
   const listEl = document.getElementById("online-invite-list");
   if (!listEl) return;
   const statusRef = ref(rtdb, "status");
   onValue(statusRef, (snap) => {
     const data = snap.val() || {};
-    const others = Object.entries(data).filter(([uid, v]) => uid !== myUid && v.state === "online");
-    if (!others.length) { listEl.innerHTML = `<li class="empty">Niemand sonst online grad.</li>`; return; }
+    let others = Object.entries(data).filter(([uid, v]) => uid !== myUid && v.state === "online");
+    const hasFavoritesOnline = others.some(([uid]) => roulFavorites.has(uid));
+    if (!roulShowAllOnline && hasFavoritesOnline) {
+      others = others.filter(([uid]) => roulFavorites.has(uid));
+    }
+    if (!others.length) {
+      listEl.innerHTML = `<li class="empty">${hasFavoritesOnline || roulShowAllOnline ? "Niemand sonst online grad." : "Keine Freunde online — "}${!roulShowAllOnline && !hasFavoritesOnline ? '<a href="#" id="rou-showall-link" style="color:var(--in);">alle online Spieler anzeigen</a>' : ""}</li>`;
+      const link = document.getElementById("rou-showall-link");
+      if (link) link.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; listenOnlinePlayersForInvite(); });
+      return;
+    }
     listEl.innerHTML = "";
+    others.sort((a,b) => (roulFavorites.has(b[0])?1:0) - (roulFavorites.has(a[0])?1:0));
     others.forEach(([uid, v]) => {
+      const isFav = roulFavorites.has(uid);
       const li = document.createElement("li");
-      li.innerHTML = `<span>🟢 ${v.username || "Unbekannt"}</span><button class="ghost roulette-invite-btn" data-uid="${uid}" data-name="${v.username||"Unbekannt"}" style="padding:4px 10px;font-size:11px;">Einladen 📨</button>`;
+      li.innerHTML = `<span>${isFav?"⭐":"🟢"} ${v.username || "Unbekannt"}</span><button class="ghost roulette-invite-btn" data-uid="${uid}" data-name="${v.username||"Unbekannt"}" style="padding:4px 10px;font-size:11px;">Einladen 📨</button>`;
       listEl.appendChild(li);
     });
+    if (!roulShowAllOnline) {
+      const toggleLi = document.createElement("li");
+      toggleLi.className = "empty";
+      toggleLi.innerHTML = `<a href="#" id="rou-showall-link2" style="color:var(--in);">+ alle online Spieler anzeigen</a>`;
+      listEl.appendChild(toggleLi);
+      document.getElementById("rou-showall-link2")?.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; listenOnlinePlayersForInvite(); });
+    }
     listEl.querySelectorAll(".roulette-invite-btn").forEach(btn => {
       btn.addEventListener("click", () => sendTableInvite(btn.dataset.uid, btn.dataset.name));
     });

@@ -303,6 +303,17 @@ service cloud.firestore {
       allow create, update: if request.auth != null;
     }
 
+    // MAP FEATURE (Verbesserungsvorschlag Punkt 1): eigene Log-Collection für
+    // Voucher-Einlösungen — läuft NICHT über auditLog, weil das isIllegaloStaff()
+    // braucht und normale Gamecenter-Accounts (die den Voucher einlösen) das
+    // nicht erfüllen. Jeder darf nur EIGENE Einträge schreiben, lesen dürfen alle
+    // eingeloggten (Staff kann so nachvollziehen wer wann was eingelöst hat).
+    match /voucherLog/{entryId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow update, delete: if false;
+    }
+
     // Favoriten-Liste (wer ist mein Lieblings-Gegner)
     match /gcFavorites/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;

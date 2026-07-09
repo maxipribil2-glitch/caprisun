@@ -59,6 +59,7 @@ loginForm.addEventListener("submit", async (e) => {
   try {
     await signInWithEmailAndPassword(auth, usernameToEmail(username), password);
     sessionStorage.setItem("gc_just_logged_in", "1"); // MAP: markiert frischen Login-Vorgang
+    sessionStorage.setItem("gc_login_username", username); // MAP FIX: username für Intro-Redirect sichern (war vorher außerhalb des Scopes von onAuthStateChanged nicht erreichbar -> ReferenceError bei jedem Login)
     // redirect happens in onAuthStateChanged below
   } catch (err) {
     showError(friendlyError(err));
@@ -80,6 +81,16 @@ registerForm.addEventListener("submit", async (e) => {
     return;
   }
 
+  // MAP FIX (Coin-Verteilungs-Bug!): vorher feuerte onAuthStateChanged SOFORT
+  // sobald createUserWithEmailAndPassword() durchlief — noch BEVOR der setDoc()
+  // Call weiter unten (der die 1000 Start-Coins schreibt) fertig war. Der
+  // Listener hat dann direkt window.location.href gesetzt, was den laufenden
+  // Firestore-Write mitten drin abbrechen konnte -> manche neue Accounts kriegten
+  // nie ihren users-Doc bzw. nie die Coins. Fix: Flag verhindert dass der separate
+  // Listener vorzeitig redirected, register() macht den Redirect jetzt SELBST
+  // erst nachdem setDoc() wirklich fertig ist.
+  sessionStorage.setItem("gc_auth_write_pending", "1");
+
   try {
     const cred = await createUserWithEmailAndPassword(auth, usernameToEmail(username), password);
     await updateProfile(cred.user, { displayName: username });
@@ -89,32 +100,32 @@ registerForm.addEventListener("submit", async (e) => {
       lastDailyBonus: null,
       createdAt: serverTimestamp()
     });
-    sessionStorage.setItem("gc_just_logged_in", "1");
-    sessionStorage.setItem("gc_new_user", "1"); // MAP: eigener Flag für "gerade registriert"
-    // redirect happens in onAuthStateChanged below
+    sessionStorage.removeItem("gc_auth_write_pending");
+    const params = new URLSearchParams({ u: username, new: "1" });
+    window.location.href = "intro.html?" + params.toString();
   } catch (err) {
+    sessionStorage.removeItem("gc_auth_write_pending");
     showError(friendlyError(err));
   }
 });
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
+    // MAP FIX: falls grad ne Registrierung läuft und der setDoc() Call noch nicht
+    // fertig ist, NICHT vorzeitig redirecten — register() übernimmt das selbst.
+    if (sessionStorage.getItem("gc_auth_write_pending") === "1") return;
     // MAP FIX: Intro-Screen (Matrix-Animation + Welcome-Text) läuft nur, wenn der
     // User GERADE eben eingeloggt/registriert hat (Flag aus signIn/register-Handler).
     // Falls schon ne bestehende Session da ist und man einfach auf gc-index.html
     // landet, geht's direkt zur Lobby ohne die Animation nochmal abzuspulen.
     const justLoggedIn = sessionStorage.getItem("gc_just_logged_in") === "1";
     const isNewUser = sessionStorage.getItem("gc_new_user") === "1";
+    const loginUsername = sessionStorage.getItem("gc_login_username") || (user.displayName || "");
     sessionStorage.removeItem("gc_just_logged_in");
     sessionStorage.removeItem("gc_new_user");
+    sessionStorage.removeItem("gc_login_username");
     if (justLoggedIn) {
-      // MAP FIX (Deep Check Bug): "username" existierte in diesem Scope gar nicht
-      // (das war nur eine lokale Variable in den submit-Handlern oben) — hätte bei
-      // JEDEM Login/Register einen ReferenceError geworfen und den Redirect zu
-      // intro.html komplett verhindert (User blieb einfach auf der Login-Seite
-      // hängen, ohne sichtbare Fehlermeldung). Jetzt: echter Anzeigename vom
-      // gerade eingeloggten Firebase-User.
-      const params = new URLSearchParams({ u: user.displayName || "", new: isNewUser ? "1" : "0" });
+      const params = new URLSearchParams({ u: loginUsername, new: isNewUser ? "1" : "0" });
       window.location.href = "intro.html?" + params.toString();
     } else {
       window.location.href = "lobby.html";

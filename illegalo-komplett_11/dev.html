@@ -347,6 +347,7 @@ button,input{font-family:'Inter',sans-serif;}
           <label for="coin-mgmt-reason" style="font-size:12px;">Grund (nur intern, für Log)</label>
           <input id="coin-mgmt-reason" type="text" placeholder="z.B. Bug-Kompensation" maxlength="80" style="padding:6px;">
           <button id="coin-mgmt-submit-btn" style="margin-top:4px;">Gutschreiben ✅</button>
+          <button id="coin-mgmt-undo-btn" style="display:none;margin-top:4px;background:transparent;border:1.5px solid var(--sub,#888);">↩️ Letzte Aktion rückgängig</button>
           <div id="coin-mgmt-balance-preview" style="font-size:12px;color:var(--sub, #888);"></div>
         </div>
 
@@ -683,9 +684,23 @@ const statusDocRef = doc(db,"siteStatus","main");
 
 // MAP FEATURE (Punkt 1): Live-Badge in der Topbar zeigt an ob der Kill Switch
 // grad aktiv is — vorher konnte man das nach dem Klicken nirgends im Panel sehen.
+let killswitchReminderShown = false;
 onSnapshot(statusDocRef, (snap) => {
   const badge = document.getElementById("killswitch-badge");
-  if (badge) badge.style.display = (snap.exists() && snap.data().reason === "killswitch") ? "" : "none";
+  const data = snap.exists() ? snap.data() : {};
+  const isActive = data.reason === "killswitch";
+  if (badge) badge.style.display = isActive ? "" : "none";
+  if (!isActive) { killswitchReminderShown = false; return; }
+  // MAP FEATURE (Punkt 4): Reminder-Toast falls der Kill Switch schon >2h aktiv is,
+  // damit man's nicht einfach vergisst wieder auszuschalten. Nur 1x pro Session.
+  if (!killswitchReminderShown && data.killswitchAt) {
+    const activeSince = new Date(data.killswitchAt).getTime();
+    const hoursActive = (Date.now() - activeSince) / 3600000;
+    if (hoursActive >= 2) {
+      killswitchReminderShown = true;
+      showToast(`⚠️ Kill Switch is schon seit ${hoursActive.toFixed(1)}h aktiv — alles klar so?`);
+    }
+  }
 });
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -856,6 +871,7 @@ window.toggleSite = async function(site) {
 // automatische Spiel-Belohnung. Läuft über users/{uid}, gemappt via username-Feld.
 
 let coinMgmtUidByUsername = {};
+let lastCoinMgmtAction = null; // MAP FEATURE (Punkt 6): für Undo
 
 async function loadCoinMgmtUsers() {
   const selectEl = document.getElementById("coin-mgmt-user");
@@ -917,6 +933,10 @@ document.getElementById("coin-mgmt-submit-btn")?.addEventListener("click", async
   if (success) {
     statusEl.textContent = `✅ ${amount >= 0 ? "+" : ""}${amount} Coins für ${username}`;
     showToast(`💰 ${username}: ${amount >= 0 ? "+" : ""}${amount} Coins`);
+    // MAP FEATURE (Punkt 6): letzte Aktion merken für nen Undo-Button
+    lastCoinMgmtAction = { uid, username, amount };
+    const undoBtn = document.getElementById("coin-mgmt-undo-btn");
+    if (undoBtn) { undoBtn.style.display = ""; undoBtn.textContent = `↩️ Rückgängig: ${username} ${amount>=0?"+":""}${amount} 🪙`; }
     amountEl.value = ""; reasonEl.value = "";
     loadCoinMgmtUsers();
   } else {
@@ -926,6 +946,26 @@ document.getElementById("coin-mgmt-submit-btn")?.addEventListener("click", async
 });
 
 loadCoinMgmtUsers();
+
+document.getElementById("coin-mgmt-undo-btn")?.addEventListener("click", async () => {
+  if (!lastCoinMgmtAction) return;
+  const { uid, username, amount } = lastCoinMgmtAction;
+  const statusEl = document.getElementById("coin-mgmt-status");
+  const ok = await askConfirm("↩️", "Wirklich rückgängig machen?",
+    `${username} bekommt ${amount >= 0 ? -amount : Math.abs(amount)} 🪙 (macht die letzte Aktion (${amount>=0?"+":""}${amount}) genau rückgängig).`,
+    "warn", "Ja, rückgängig machen");
+  if (!ok) return;
+  const success = await addCoins(uid, -amount, `dev_manual_undo: reverting ${amount}`);
+  if (success) {
+    statusEl.textContent = `✅ Rückgängig gemacht für ${username}`;
+    showToast(`↩️ Aktion für ${username} rückgängig gemacht`);
+    lastCoinMgmtAction = null;
+    document.getElementById("coin-mgmt-undo-btn").style.display = "none";
+    loadCoinMgmtUsers();
+  } else {
+    statusEl.textContent = "❌ Fehler beim Rückgängigmachen.";
+  }
+});
 
 // ── EINZELNE USER SPERREN ──
 const USER_LIST = ["maxipribil","henrikstelzner","philippstangl","giannihay"];
@@ -996,7 +1036,7 @@ window.activateKillSwitch = async function() {
     "warn", "Ja, ALLES killen");
   if (!ok) return;
   try {
-    await setDoc(statusDocRef, { shop: false, admin: false, lieferant: false, reason: "killswitch" }, { merge: true });
+    await setDoc(statusDocRef, { shop: false, admin: false, lieferant: false, reason: "killswitch", killswitchAt: new Date().toISOString() }, { merge: true });
     await setDoc(doc(db, "gcConfig", "site"), { maintenance: true }, { merge: true });
     // MAP FEATURE (Punkt 4): nachvollziehbar machen WER wann den Kill Switch zog
     addDoc(auditCol, { action: "KILL SWITCH aktiviert ☠️", by: (EARLY_AUTH.currentUser?.email || "dev-panel"), at: new Date().toISOString() }).catch(()=>{});

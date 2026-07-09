@@ -171,6 +171,13 @@ textarea{resize:vertical;}
         Schon registriert? <a href="#" onclick="switchToLogin();return false;" style="color:var(--in);text-decoration:underline;">Einloggen</a>
       </div>
     </div>
+
+    <div id="account-loggedin-form" class="hidden">
+      <div style="font-size:.85rem;margin-bottom:1rem;">Eingeloggt als <strong id="account-loggedin-name"></strong></div>
+      <div class="fg"><label>Neues Passwort</label><input id="account-newpass" type="password" placeholder="min. 6 Zeichen"/></div>
+      <button onclick="doChangePassword()" style="width:100%;margin-top:.5rem;">Passwort ändern</button>
+      <button onclick="doAccountLogout()" style="width:100%;margin-top:.6rem;background:transparent;border:1.5px solid var(--mu);">🚪 Logout</button>
+    </div>
   </div>
 </div>
 <div style="position:fixed;bottom:14px;right:18px;font-size:11px;font-weight:700;color:var(--mu);opacity:.6;z-index:9999;pointer-events:none;font-family:'Inter',sans-serif">v2.10</div>
@@ -187,6 +194,7 @@ textarea{resize:vertical;}
     <button class="nb" id="btn-wish" onclick="showPage('wish')">⭐ Wunschliste</button>
     <button class="nb" id="btn-theme" onclick="toggleTheme()" title="Dark/Light wechseln" style="padding:6px 10px;font-size:1rem;">☀️</button>
     <button class="nb" id="lang-toggle" onclick="window._toggleLang && window._toggleLang()" style="padding:6px 10px;font-size:.78rem;font-weight:700;">🇬🇧 EN</button>
+    <span id="shop-coin-balance" style="display:none;font-size:.78rem;font-weight:800;color:#f59e0b;align-self:center;padding:0 6px;"></span>
     <span id="account-who" style="display:none;font-size:.72rem;color:var(--mu);align-self:center;padding:0 6px;"></span>
     <button class="nb" id="account-btn" onclick="openAccountModal()">🔑 Login</button>
   </div>
@@ -285,7 +293,7 @@ textarea{resize:vertical;}
 
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut }
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, updatePassword }
                                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs, updateDoc, getDoc }
                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -368,23 +376,64 @@ onAuthStateChanged(auth, async (user) => {
     const nameInput = document.getElementById("c-name");
     if (nameInput && !nameInput.value) nameInput.value = myUsername;
     checkFreeDeliveryVoucher();
+    // MAP FEATURE (Punkt 2): Coin-Kontostand im Header anzeigen, live via onSnapshot
+    onSnapshot(doc(db, "users", myUid), (snap) => {
+      const el = document.getElementById("shop-coin-balance");
+      if (el && snap.exists()) { el.textContent = "💰 " + (snap.data().gamocoins ?? 0); el.style.display = ""; }
+    });
   } else {
     myUid = null; myUsername = null;
     hasVoucher = false; // MAP FIX (Punkt 3): Flag beim Logout resetten, nicht nur den Banner verstecken
     if (loginBtn) loginBtn.textContent = "🔑 Login";
     if (whoLabel) whoLabel.style.display = "none";
+    const balEl = document.getElementById("shop-coin-balance");
+    if (balEl) balEl.style.display = "none";
     hideVoucherBanner();
   }
 });
 
 window.openAccountModal = function() {
+  const overlay = document.getElementById("account-modal-overlay");
+  const errEl = document.getElementById("account-error");
+  errEl.textContent = "";
   if (myUid) {
-    // Bereits eingeloggt -> Logout
-    signOut(auth);
+    // MAP FEATURE (Punkt 3): eingeloggt -> Passwort-Ändern-Ansicht statt direktem Logout
+    document.getElementById("account-login-form").classList.add("hidden");
+    document.getElementById("account-register-form").classList.add("hidden");
+    document.getElementById("account-loggedin-form").classList.remove("hidden");
+    document.getElementById("account-loggedin-name").textContent = myUsername;
+    overlay.classList.add("show");
     return;
   }
-  document.getElementById("account-modal-overlay").classList.add("show");
-  document.getElementById("account-error").textContent = "";
+  document.getElementById("account-login-form").classList.remove("hidden");
+  document.getElementById("account-register-form").classList.add("hidden");
+  document.getElementById("account-loggedin-form").classList.add("hidden");
+  overlay.classList.add("show");
+};
+window.doAccountLogout = function() {
+  signOut(auth);
+  closeAccountModal();
+};
+window.doChangePassword = async function() {
+  const newPw = document.getElementById("account-newpass").value;
+  const errEl = document.getElementById("account-error");
+  errEl.textContent = "";
+  if (newPw.length < 6) { errEl.textContent = "Passwort zu kurz — min. 6 Zeichen."; return; }
+  try {
+    await updatePassword(auth.currentUser, newPw);
+    document.getElementById("account-newpass").value = "";
+    showToast("Passwort geändert! 🔐");
+    closeAccountModal();
+  } catch (err) {
+    // MAP: Firebase verlangt bei sensiblen Aktionen (Passwort ändern) manchmal
+    // nen frischen Login ("requires-recent-login") — falls das passiert, kann
+    // man aktuell nur ausloggen und sich neu einloggen, kein Re-Auth-Flow hier gebaut.
+    if ((err.code||"").includes("requires-recent-login")) {
+      errEl.textContent = "Aus Sicherheitsgründen: erst ausloggen und neu einloggen, dann nochmal versuchen.";
+    } else {
+      errEl.textContent = friendlyAuthError(err);
+    }
+  }
 };
 window.closeAccountModal = function() {
   document.getElementById("account-modal-overlay").classList.remove("show");
@@ -467,6 +516,16 @@ window._flushOfflineQueue = async function() {
     try {
       const orderNumber = await getNextOrderNumber();
       await addDoc(col, { ...pending, orderNumber, created: serverTimestamp() });
+      // MAP FIX (Deep Check): Voucher wurde bei OFFLINE-Bestellungen nie konsumiert —
+      // blieb in Firestore weiterhin freeDeliveryVoucher:true, obwohl er schon für
+      // diese Bestellung "genutzt" wurde. Jetzt konsistent mit dem Online-Pfad:
+      // sofort nach erfolgreichem Post konsumieren.
+      if (pending.freeDeliveryVoucher && myUid) {
+        hasVoucher = false;
+        hideVoucherBanner();
+        updateDoc(doc(db, "users", myUid), { freeDeliveryVoucher: false }).catch(()=>{});
+        addDoc(collection(db,"voucherLog"), { uid: myUid, action: `Jackpot-Voucher eingelöst (Order #${orderNumber}, offline gepostet)`, by: myUsername, at: new Date().toISOString() }).catch(()=>{});
+      }
       showToast(`Offline-Bestellung #${String(orderNumber).padStart(3,"0")} jetzt gepostet! 📡`);
     } catch(e) { break; }
   }
@@ -714,6 +773,8 @@ window.postOrder = async () => {
       hasVoucher = false;
       hideVoucherBanner();
       updateDoc(doc(db, "users", myUid), { freeDeliveryVoucher: false }).catch(()=>{});
+      // MAP FEATURE (Punkt 1): Voucher-Einlösung geloggt, damit nachvollziehbar bleibt wann/wo er benutzt wurde
+      addDoc(collection(db,"voucherLog"), { uid: myUid, action: `Jackpot-Voucher eingelöst (Order #${orderNumber})`, by: myUsername, at: new Date().toISOString() }).catch(()=>{});
     }
     localStorage.setItem("illegalo_last_customer", JSON.stringify({name, address}));
     localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
