@@ -204,7 +204,12 @@ export async function spinSlotMachine(uid) {
 
       return { spun: true, reels, isJackpot, coinsWon, voucherWon };
     });
-  } catch (e) { return { spun: false, reason: "error" }; }
+  } catch (e) {
+    // MAP FIX: vorher wurde der echte Fehler still verschluckt — man sah in der
+    // Console nix und konnte den eigentlichen Grund nie rausfinden. Jetzt geloggt.
+    console.error("[slots] spinSlotMachine failed:", e);
+    return { spun: false, reason: "error" };
+  }
 }
 
 // ── Formatierung ──
