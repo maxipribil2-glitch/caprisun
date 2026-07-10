@@ -684,24 +684,32 @@ const statusDocRef = doc(db,"siteStatus","main");
 
 // MAP FEATURE (Punkt 1): Live-Badge in der Topbar zeigt an ob der Kill Switch
 // grad aktiv is — vorher konnte man das nach dem Klicken nirgends im Panel sehen.
-let killswitchReminderShown = false;
+let killswitchLastReminderBucket = -1;
+let lastKillswitchData = {};
+
+function checkKillswitchReminder() {
+  const data = lastKillswitchData;
+  const isActive = data.reason === "killswitch";
+  if (!isActive) { killswitchLastReminderBucket = -1; return; }
+  if (!data.killswitchAt) return;
+  const activeSince = new Date(data.killswitchAt).getTime();
+  const hoursActive = (Date.now() - activeSince) / 3600000;
+  const currentBucket = Math.floor(hoursActive / 2);
+  if (currentBucket >= 1 && currentBucket !== killswitchLastReminderBucket) {
+    killswitchLastReminderBucket = currentBucket;
+    showToast(`⚠️ Kill Switch is schon seit ${hoursActive.toFixed(1)}h aktiv — alles klar so?`);
+  }
+}
 onSnapshot(statusDocRef, (snap) => {
   const badge = document.getElementById("killswitch-badge");
-  const data = snap.exists() ? snap.data() : {};
-  const isActive = data.reason === "killswitch";
-  if (badge) badge.style.display = isActive ? "" : "none";
-  if (!isActive) { killswitchReminderShown = false; return; }
-  // MAP FEATURE (Punkt 4): Reminder-Toast falls der Kill Switch schon >2h aktiv is,
-  // damit man's nicht einfach vergisst wieder auszuschalten. Nur 1x pro Session.
-  if (!killswitchReminderShown && data.killswitchAt) {
-    const activeSince = new Date(data.killswitchAt).getTime();
-    const hoursActive = (Date.now() - activeSince) / 3600000;
-    if (hoursActive >= 2) {
-      killswitchReminderShown = true;
-      showToast(`⚠️ Kill Switch is schon seit ${hoursActive.toFixed(1)}h aktiv — alles klar so?`);
-    }
-  }
+  lastKillswitchData = snap.exists() ? snap.data() : {};
+  if (badge) badge.style.display = (lastKillswitchData.reason === "killswitch") ? "" : "none";
+  checkKillswitchReminder();
 });
+// MAP FIX (Punkt 3): onSnapshot feuert nur bei ECHTER Datenänderung, nicht
+// periodisch — ohne diesen Interval hätte der "alle 2h"-Reminder nie erneut
+// gefeuert solang niemand sonst was am Dokument ändert. Checkt jetzt alle 5 Min.
+setInterval(checkKillswitchReminder, 5 * 60 * 1000);
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║   🎮 GAMECENTER — läuft jetzt über die gleiche Firestore   ║
@@ -1035,13 +1043,29 @@ window.activateKillSwitch = async function() {
     "ALLES wird deaktiviert: Shop, Admin Panel, Lieferanten-Seite UND das komplette Gamecenter (Lobby + alle Games). NUR das Dev Panel bleibt erreichbar. Das ist die härteste Notfall-Option — nur nutzen wenn's wirklich brennt!",
     "warn", "Ja, ALLES killen");
   if (!ok) return;
+  // MAP FIX (Deep Check Bug 2): vorher waren das 2 unabhängige Writes ohne
+  // Absicherung — falls der ERSTE klappt aber der ZWEITE failt, landet man im
+  // generischen catch-Toast, denkt "hat nich geklappt", obwohl schon die Hälfte
+  // gekillt is. Jetzt: beide einzeln versucht, klare Rückmeldung was wirklich lief.
+  let siteOk = false, gcOk = false;
   try {
     await setDoc(statusDocRef, { shop: false, admin: false, lieferant: false, reason: "killswitch", killswitchAt: new Date().toISOString() }, { merge: true });
+    siteOk = true;
+  } catch(e) {}
+  try {
     await setDoc(doc(db, "gcConfig", "site"), { maintenance: true }, { merge: true });
-    // MAP FEATURE (Punkt 4): nachvollziehbar machen WER wann den Kill Switch zog
-    addDoc(auditCol, { action: "KILL SWITCH aktiviert ☠️", by: (EARLY_AUTH.currentUser?.email || "dev-panel"), at: new Date().toISOString() }).catch(()=>{});
+    gcOk = true;
+  } catch(e) {}
+  addDoc(auditCol, { action: "KILL SWITCH aktiviert ☠️", by: (EARLY_AUTH.currentUser?.email || "dev-panel"), at: new Date().toISOString() }).catch(()=>{});
+  if (siteOk && gcOk) {
     showToast("☠️ KILL SWITCH aktiviert — alles außer Dev Panel is jetzt offline!");
-  } catch(e) { showToast("Fehler: "+e.message, true); }
+  } else if (siteOk && !gcOk) {
+    showToast("⚠️ Shop/Admin/Lieferant sind offline, aber Gamecenter-Kill hat NICHT geklappt — nochmal versuchen!", true);
+  } else if (!siteOk && gcOk) {
+    showToast("⚠️ Gamecenter is offline, aber Shop/Admin/Lieferant-Kill hat NICHT geklappt — nochmal versuchen!", true);
+  } else {
+    showToast("❌ Kill Switch komplett fehlgeschlagen — nix wurde deaktiviert.", true);
+  }
 };
 
 window.setEmergency = async function(reason) {
@@ -1062,7 +1086,7 @@ window.setEmergency = async function(reason) {
 
 window.restoreAll = async function() {
   try {
-    await setDoc(statusDocRef, { shop: true, admin: true, lieferant: true, reason: null }, { merge: true });
+    await setDoc(statusDocRef, { shop: true, admin: true, lieferant: true, reason: null, killswitchAt: null }, { merge: true });
     // MAP: reaktiviert nebenbei auch das Gamecenter falls der Kill Switch aktiv war —
     // schadet nix falls er's nicht war (setzt einfach maintenance:false, was eh der
     // Normalzustand ist).

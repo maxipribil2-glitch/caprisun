@@ -107,7 +107,11 @@ function listenOnlinePlayersForInvite() {
       others = others.filter(([uid]) => roulFavorites.has(uid));
     }
     if (!others.length) {
-      listEl.innerHTML = `<li class="empty">${hasFavoritesOnline || roulShowAllOnline ? "Niemand sonst online grad." : "Keine Freunde online — "}${!roulShowAllOnline && !hasFavoritesOnline ? '<a href="#" id="rou-showall-link" style="color:var(--in);">alle online Spieler anzeigen</a>' : ""}</li>`;
+      const noFavoritesSet = roulFavorites.size === 0;
+      const emptyText = (hasFavoritesOnline || roulShowAllOnline) ? "Niemand sonst online grad."
+        : noFavoritesSet ? "Noch keine Freunde markiert (geht in der Lobby beim Spieler-Namen) — "
+        : "Keine Freunde grad online — ";
+      listEl.innerHTML = `<li class="empty">${emptyText}${!roulShowAllOnline && !hasFavoritesOnline ? '<a href="#" id="rou-showall-link" style="color:var(--in);">alle online Spieler anzeigen</a>' : ""}</li>`;
       const link = document.getElementById("rou-showall-link");
       if (link) link.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; listenOnlinePlayersForInvite(); });
       return;

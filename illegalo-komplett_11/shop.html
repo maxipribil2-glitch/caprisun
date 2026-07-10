@@ -134,6 +134,20 @@ textarea{resize:vertical;}
 #dino-canvas{background:var(--sf);border:1.5px solid var(--bd);border-radius:14px;touch-action:none;}
 .hidden { display: none !important; }
 #account-modal-overlay.show { display: flex !important; }
+/* MAP FIX (Deep Check Bug): die beiden Regeln oben standen vorher doppelt
+   hintereinander (Copy-Paste-Rest) — harmlos da identisch, aber aufgeräumt. */
+/* MAP FEATURE: Shop-Login-Gate — solang nicht eingeloggt, wird der komplette
+   Shop-Inhalt versteckt und nur das Login/Register-Modal (als Vollbild-Gate)
+   gezeigt, exakt wie beim Gamecenter-Login (gc-index.html). */
+body.shop-locked > header,
+body.shop-locked > #offline-banner,
+body.shop-locked > .page {
+  display: none !important;
+}
+#account-modal-overlay.gate-mode {
+  background: var(--bg, #0c1420) !important;
+}
+#account-modal-overlay.gate-mode .account-gate-close { display: none !important; }
 </style>
 <script src="dino-game.js"></script>
 </head>
@@ -149,9 +163,11 @@ textarea{resize:vertical;}
 
 <div id="account-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;align-items:center;justify-content:center;">
   <div style="background:var(--s1,#1a1c26);border-radius:14px;padding:1.5rem;max-width:340px;width:90%;position:relative;">
-    <button onclick="closeAccountModal()" style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--mu);font-size:1.2rem;cursor:pointer;">✕</button>
-    <div style="font-weight:800;font-size:1.1rem;margin-bottom:.3rem;">🎮 Illegalo Account</div>
-    <div style="font-size:.75rem;color:var(--mu);margin-bottom:1rem;">Gleicher Login wie im Gamecenter — ein Account für beides!</div>
+    <button class="account-gate-close" onclick="closeAccountModal()" style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--mu);font-size:1.2rem;cursor:pointer;">✕</button>
+    <div style="font-weight:800;font-size:1.3rem;margin-bottom:.3rem;">Illegalo ⚡</div>
+    <div style="font-weight:800;font-size:1.1rem;margin-bottom:.3rem;">🎮 Account</div>
+    <div style="font-size:.75rem;color:var(--mu);margin-bottom:.4rem;">Gleicher Login wie im Gamecenter — <strong>ein Account für beides!</strong> Schon im Gamecenter registriert? Einfach hier mit den gleichen Daten einloggen, NICHT nochmal neu registrieren.</div>
+    <div style="font-size:.68rem;color:var(--mu);opacity:.8;margin-bottom:1rem;">Passwort vergessen? Meldet euch bei nem Admin — Reset geht grad nur manuell.</div>
     <div id="account-error" style="color:#ef4444;font-size:.78rem;margin-bottom:.6rem;min-height:16px;"></div>
 
     <div id="account-login-form">
@@ -296,7 +312,8 @@ import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, updatePassword }
                                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs, updateDoc, getDoc }
-                               from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { formatCoins } from "./gamocoin.js";
 import { toggleLang, applyLang } from "./i18n.js";
 window._toggleLang = toggleLang;
 applyLang();
@@ -372,6 +389,9 @@ onAuthStateChanged(auth, async (user) => {
     myUsername = user.displayName || user.email.split("@")[0];
     if (loginBtn) loginBtn.textContent = "🚪 Logout";
     if (whoLabel) { whoLabel.textContent = `eingeloggt als ${myUsername}`; whoLabel.style.display = ""; }
+    // MAP FEATURE: Gate schließen + Shop-Inhalt wieder freigeben
+    document.body.classList.remove("shop-locked");
+    document.getElementById("account-modal-overlay").classList.remove("gate-mode", "show");
     // Name-Feld automatisch vorausfüllen, falls noch leer
     const nameInput = document.getElementById("c-name");
     if (nameInput && !nameInput.value) nameInput.value = myUsername;
@@ -379,13 +399,20 @@ onAuthStateChanged(auth, async (user) => {
     // MAP FEATURE (Punkt 2): Coin-Kontostand im Header anzeigen, live via onSnapshot
     onSnapshot(doc(db, "users", myUid), (snap) => {
       const el = document.getElementById("shop-coin-balance");
-      if (el && snap.exists()) { el.textContent = "💰 " + (snap.data().gamocoins ?? 0); el.style.display = ""; }
+      if (el && snap.exists()) { el.textContent = "💰 " + formatCoins(snap.data().gamocoins ?? 0); el.style.display = ""; }
     });
   } else {
     myUid = null; myUsername = null;
     hasVoucher = false; // MAP FIX (Punkt 3): Flag beim Logout resetten, nicht nur den Banner verstecken
     if (loginBtn) loginBtn.textContent = "🔑 Login";
     if (whoLabel) whoLabel.style.display = "none";
+    // MAP FEATURE: Login-Gate erzwingen — kompletter Shop-Inhalt bleibt versteckt
+    // bis eingeloggt wird, exakt wie beim Gamecenter-Login (gc-index.html).
+    document.body.classList.add("shop-locked");
+    document.getElementById("account-login-form").classList.remove("hidden");
+    document.getElementById("account-register-form").classList.add("hidden");
+    document.getElementById("account-loggedin-form").classList.add("hidden");
+    document.getElementById("account-modal-overlay").classList.add("gate-mode", "show");
     const balEl = document.getElementById("shop-coin-balance");
     if (balEl) balEl.style.display = "none";
     hideVoucherBanner();
