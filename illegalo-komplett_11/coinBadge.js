@@ -4,8 +4,8 @@
 //   <script type="module" src="coinBadge.js"></script>
 import { app } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { toggleMute, getMuted } from "./sfx.js";
+import { supabase } from "./supabase-config.js";
 
 function ensureMuteBtn() {
   let btn = document.getElementById("mute-btn");
@@ -24,7 +24,6 @@ function ensureMuteBtn() {
 ensureMuteBtn();
 
 const auth = getAuth(app);
-const db = getFirestore(app);
 
 function ensureBadge() {
   let el = document.getElementById("coin-badge");
@@ -67,12 +66,22 @@ function animateCoinsTo(target, el) {
   animFrame = requestAnimationFrame(step);
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) return;
   const el = ensureBadge();
   el.textContent = "💰 ...";
-  onSnapshot(doc(db, "users", user.uid), (snap) => {
-    const coins = snap.exists() ? (snap.data().gamocoins ?? 0) : 0;
-    animateCoinsTo(coins, el);
-  });
+
+  // MAP FIX: initialer Fetch (Realtime-Subscription liefert erst beim NÄCHSTEN
+  // Update einen Wert, nicht sofort den aktuellen Stand — ohne das würde die
+  // Badge erstmal "..." zeigen bis irgendwas sich ändert)
+  const { data: initial } = await supabase.from("users").select("gamocoins").eq("firebase_uid", user.uid).maybeSingle();
+  if (initial) animateCoinsTo(initial.gamocoins ?? 0, el);
+
+  supabase
+    .channel(`coin-badge-${user.uid}`)
+    .on("postgres_changes",
+      { event: "UPDATE", schema: "public", table: "users", filter: `firebase_uid=eq.${user.uid}` },
+      (payload) => { animateCoinsTo(payload.new.gamocoins ?? 0, el); }
+    )
+    .subscribe();
 });
