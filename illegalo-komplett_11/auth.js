@@ -2,6 +2,7 @@
 // Firebase Auth technically needs an email, so we quietly turn the username into
 // one behind the scenes (e.g. "maxi" -> "maxi@mpgames.local"). The user never sees this.
 import { app } from "./firebase-config.js";
+import { supabase } from "./supabase-config.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updateProfile
@@ -100,6 +101,18 @@ registerForm.addEventListener("submit", async (e) => {
       lastDailyBonus: null,
       createdAt: serverTimestamp()
     });
+    // MAP FIX: Supabase-Row beim Registrieren MIT anlegen — sonst existiert der
+    // Account nur in Firestore, aber Supabase (wo Coins/Rewards/Slot Machine
+    // mittlerweile laufen) findet nie ne passende Zeile -> Kontostand zeigt für
+    // immer 0, weil die Zeile schlicht nie existiert hat.
+    const idToken = await cred.user.getIdToken();
+    await supabase.realtime.setAuth(idToken);
+    const { error: supaErr } = await supabase.from("users").insert({
+      firebase_uid: cred.user.uid,
+      username,
+      gamocoins: 1000
+    });
+    if (supaErr) console.error("[auth] Supabase-User-Anlage fehlgeschlagen:", supaErr);
     sessionStorage.removeItem("gc_auth_write_pending");
     const params = new URLSearchParams({ u: username, new: "1" });
     window.location.href = "intro.html?" + params.toString();
