@@ -539,7 +539,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, addDoc, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { addCoins, getBalance } from "./gamocoin.js";
+import { addCoins, getBalance, adminAddCoins } from "./gamocoin.js";
+// MAP FIX (Deep Check Bug — silent failure): das Coin-Management-Panel unten
+// hat bisher addCoins() benutzt, um Coins für BELIEBIGE ausgewählte Accounts
+// gutzuschreiben/abzuziehen. addCoins() macht seit der Supabase-Migration
+// aber ein simples UPDATE, das nur unter der "update own user"-RLS-Policy
+// erlaubt ist — die lässt NUR die eigene Zeile zu (firebase_uid = eigene
+// Firebase-UID). Ein Dev/Admin der hier Coins für einen ANDEREN Spieler
+// vergeben wollte, hätte einen "Erfolg"-Toast gesehen (kein Error von
+// Supabase, einfach 0 betroffene Zeilen), aber der Zielaccount hätte NIE
+// wirklich Coins bekommen — komplett unsichtbar fehlgeschlagen. Jetzt läuft
+// das über adminAddCoins() (die admin_add_coins-RPC), die serverseitig
+// is_illegalo_staff() prüft und explizit für fremde Accounts gedacht ist.
 
 // Firebase wird jetzt schon VOR dem Login initialisiert (statt erst danach), weil der
 // Login selbst jetzt ein echter Firebase-Auth-Call ist, kein reiner Hash-Vergleich mehr.
@@ -937,7 +948,7 @@ document.getElementById("coin-mgmt-submit-btn")?.addEventListener("click", async
     "warn", "Ja, ausführen");
   if (!ok) return;
 
-  const success = await addCoins(uid, amount, `dev_manual: ${reason}`);
+  const success = await adminAddCoins(uid, amount);
   if (success) {
     statusEl.textContent = `✅ ${amount >= 0 ? "+" : ""}${amount} Coins für ${username}`;
     showToast(`💰 ${username}: ${amount >= 0 ? "+" : ""}${amount} Coins`);
@@ -963,7 +974,7 @@ document.getElementById("coin-mgmt-undo-btn")?.addEventListener("click", async (
     `${username} bekommt ${amount >= 0 ? -amount : Math.abs(amount)} 🪙 (macht die letzte Aktion (${amount>=0?"+":""}${amount}) genau rückgängig).`,
     "warn", "Ja, rückgängig machen");
   if (!ok) return;
-  const success = await addCoins(uid, -amount, `dev_manual_undo: reverting ${amount}`);
+  const success = await adminAddCoins(uid, -amount);
   if (success) {
     statusEl.textContent = `✅ Rückgängig gemacht für ${username}`;
     showToast(`↩️ Aktion für ${username} rückgängig gemacht`);
