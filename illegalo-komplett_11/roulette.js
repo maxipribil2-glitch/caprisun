@@ -461,17 +461,17 @@ function handleTableUpdate(data) {
     if (phaseLabel) phaseLabel.textContent = "🌀 BALL ROLLT…";
     if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = "🌀 LÄUFT…"; }
     if (lastPhase !== "spinning" && data.result != null) {
-      // MAP FIX (Deep Check Bug — Multiplayer-Wetten): vorher rief NUR der Client der
-      // die Phasenwechsel-Transaction in advancePhase() gewonnen hat commitBets() auf
-      // (nur für SEINE eigenen Wetten). Bei 2+ gleichzeitig wettenden Spielern wurden
-      // alle anderen NIE abgerechnet (kein Abzug, kein Gewinn). Jetzt: JEDER Client
-      // committed hier zentral seine eigenen Wetten sobald das Ergebnis feststeht,
-      // unabhängig davon wer die Transaction gewonnen hat. commitBets() ist bereits
-      // idempotent über "committedRounds" + roundKey, ruft also pro Runde nur einmal
-      // pro Client wirklich was ab (und tut nichts falls keine eigenen Wetten liegen).
-      commitBets(data.result, "round:" + data.phaseEnds);
       animateSpin(data.result, () => showResult(data));
     }
+    // MAP FIX (Deep Check Bug — Multiplayer-Wetten): vorher rief NUR der Client der
+    // die Phasenwechsel-Transaction in advancePhase() gewonnen hat commitBets() auf
+    // (nur für SEINE eigenen Wetten). Bei 2+ gleichzeitig wettenden Spielern wurden
+    // alle anderen NIE abgerechnet (kein Abzug, kein Gewinn). Jetzt: JEDER Client
+    // committed hier zentral seine eigenen Wetten sobald das Ergebnis feststeht,
+    // unabhängig davon wer die Transaction gewonnen hat. commitBets() ist bereits
+    // idempotent über "committedRounds" + roundKey, ruft also pro Runde nur einmal
+    // pro Client wirklich was ab (und tut nichts falls keine eigenen Wetten liegen).
+    commitBets(data.result, "round:" + data.phaseEnds);
   } else if (currentPhase === "result") {
     if (phaseLabel) phaseLabel.textContent = "✅ ERGEBNIS";
     if (spinBtn) { spinBtn.disabled = true; }

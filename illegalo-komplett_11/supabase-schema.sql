@@ -12,12 +12,6 @@ create table if not exists users (
   last_daily_bonus timestamptz,
   last_slot_spin timestamptz,
   free_delivery_voucher boolean not null default false,
-  -- MAP FIX (Deep Check Bug): fehlte komplett in der ersten Migration, obwohl
-  -- gamocoin.js (addLiveDropCoins für Coin Rush) diese Spalte braucht, um den
-  -- Pro-Session-Cap von 500 Coins serverseitig zu tracken. Ohne die Spalte
-  -- schlägt jeder Coin-Rush-Payout mit einem "column does not exist"-Fehler
-  -- fehl. Falls du die Tabelle schon angelegt hast: einmalig nachziehen mit
-  --   alter table users add column if not exists live_drop_session_total bigint not null default 0;
   live_drop_session_total bigint not null default 0,
   created_at timestamptz not null default now()
 );
@@ -254,6 +248,28 @@ $$;
 -- Staff-only: Coins für ANDERE Accounts gutschreiben/abziehen (Dev-Panel-Feature).
 -- Läuft NICHT über die normale "update own user"-RLS-Policy (die erlaubt nur die
 -- eigene Zeile), sondern separat mit is_illegalo_staff()-Check.
+-- Coin Rush: Live-Drop-Coins, gecappt bei 500 pro Session (p_uid = auth.jwt())
+create or replace function add_live_drop_coins(p_uid text, p_amount bigint)
+returns jsonb language plpgsql as $$
+declare
+  v_session_total bigint;
+  v_remaining bigint;
+  v_to_credit bigint;
+begin
+  if p_uid != auth.jwt()->>'sub' then
+    return jsonb_build_object('credited', 0);
+  end if;
+  select live_drop_session_total into v_session_total from users where firebase_uid = p_uid for update;
+  if v_session_total is null then return jsonb_build_object('credited', 0); end if;
+  v_remaining := greatest(0, 500 - v_session_total);
+  v_to_credit := least(p_amount, v_remaining);
+  if v_to_credit <= 0 then return jsonb_build_object('credited', 0); end if;
+  update users set gamocoins = gamocoins + v_to_credit, live_drop_session_total = v_session_total + v_to_credit
+    where firebase_uid = p_uid;
+  return jsonb_build_object('credited', v_to_credit);
+end;
+$$;
+
 create or replace function admin_add_coins(p_target_uid text, p_amount bigint)
 returns jsonb language plpgsql as $$
 begin

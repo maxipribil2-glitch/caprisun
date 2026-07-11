@@ -107,44 +107,29 @@ export async function spinSlotMachine(uid) {
   }
 }
 
-// MAP FIX (Deep Check Bug — Breaking Import): coinrush.js importiert
-// addLiveDropCoins + resetLiveDropSession aus diesem Modul, aber die Supabase-
-// Migration hat die beiden Exports komplett vergessen mitzunehmen — das ES-
-// Module-Import in coinrush.js hätte deswegen sofort gecrasht ("does not
-// provide an export named..."), die GANZE coinrush.html-Seite wäre kaputt
-// gewesen (kein einziges Script auf der Seite hätte noch ausgeführt). Hier
-// als direkte Supabase-Updates nachgebaut (Coin Rush schreibt nur die EIGENE
-// Zeile während des eigenen Spiels — das ist über die "update own user"-RLS-
-// Policy erlaubt, deshalb reicht ein simples read-then-write ohne RPC/
-// Transaction, genau wie bei addCoins() oben). Braucht die neue Spalte
-// "live_drop_session_total" auf der users-Tabelle, siehe supabase-schema.sql
-// — die musst du einmalig per ALTER TABLE in Supabase nachziehen.
-const LIVE_DROP_SESSION_CAP = 500;
-export async function addLiveDropCoins(uid, amount, reason) {
-  const safeAmount = Math.max(0, Math.round(amount));
-  if (safeAmount <= 0) return { credited: 0 };
-  try {
-    const { data: cur, error: readErr } = await supabase.from("users").select("gamocoins, live_drop_session_total").eq("firebase_uid", uid).maybeSingle();
-    if (readErr || !cur) return { credited: 0 };
-    const sessionTotal = cur.live_drop_session_total ?? 0;
-    const remaining = Math.max(0, LIVE_DROP_SESSION_CAP - sessionTotal);
-    const toCredit = Math.min(safeAmount, remaining);
-    if (toCredit <= 0) return { credited: 0 };
-    const { error } = await supabase.from("users").update({
-      gamocoins: cur.gamocoins + toCredit,
-      live_drop_session_total: sessionTotal + toCredit
-    }).eq("firebase_uid", uid);
-    return { credited: error ? 0 : toCredit };
-  } catch(e) { console.error("[gamocoin] addLiveDropCoins failed:", e); return { credited: 0 }; }
-}
-// Session-Cap zurücksetzen (bei Game-Start aufrufen, sonst bleibt er für immer bei 500)
-export async function resetLiveDropSession(uid) {
-  try { await supabase.from("users").update({ live_drop_session_total: 0 }).eq("firebase_uid", uid); } catch(e) {}
-}
-
 // ── Formatierung ──
 export function formatCoins(n) {
   if (n >= 1000000) return (n/1000000).toFixed(1).replace(/\.0$/,"") + "M";
   if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,"") + "K";
   return String(n);
+}
+
+// ── Coin Rush Live-Drop-Coins (Session-gecappt bei 500) ──
+// MAP FIX (Bug 4): fehlte komplett in der ersten Supabase-Version, coinrush.js
+// importiert diese Funktionen -> war komplett kaputt ohne die hier.
+export async function addLiveDropCoins(uid, amount, reason) {
+  const safeAmount = Math.max(0, Math.round(amount));
+  if (safeAmount <= 0) return { credited: 0 };
+  try {
+    const { data, error } = await supabase.rpc("add_live_drop_coins", { p_uid: uid, p_amount: safeAmount });
+    if (error) { console.error("[gamocoin] addLiveDropCoins failed:", error); return { credited: 0 }; }
+    return { credited: data.credited ?? 0 };
+  } catch (e) { console.error("[gamocoin] addLiveDropCoins failed:", e); return { credited: 0 }; }
+}
+
+// Session-Cap zurücksetzen (bei Game-Start aufrufen, sonst bleibt er für immer bei 500)
+export async function resetLiveDropSession(uid) {
+  try {
+    await supabase.from("users").update({ live_drop_session_total: 0 }).eq("firebase_uid", uid);
+  } catch (e) { console.error("[gamocoin] resetLiveDropSession failed:", e); }
 }

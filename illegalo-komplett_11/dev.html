@@ -539,18 +539,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, addDoc, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { addCoins, getBalance, adminAddCoins } from "./gamocoin.js";
-// MAP FIX (Deep Check Bug — silent failure): das Coin-Management-Panel unten
-// hat bisher addCoins() benutzt, um Coins für BELIEBIGE ausgewählte Accounts
-// gutzuschreiben/abzuziehen. addCoins() macht seit der Supabase-Migration
-// aber ein simples UPDATE, das nur unter der "update own user"-RLS-Policy
-// erlaubt ist — die lässt NUR die eigene Zeile zu (firebase_uid = eigene
-// Firebase-UID). Ein Dev/Admin der hier Coins für einen ANDEREN Spieler
-// vergeben wollte, hätte einen "Erfolg"-Toast gesehen (kein Error von
-// Supabase, einfach 0 betroffene Zeilen), aber der Zielaccount hätte NIE
-// wirklich Coins bekommen — komplett unsichtbar fehlgeschlagen. Jetzt läuft
-// das über adminAddCoins() (die admin_add_coins-RPC), die serverseitig
-// is_illegalo_staff() prüft und explizit für fremde Accounts gedacht ist.
+import { adminAddCoins, getBalance } from "./gamocoin.js";
 
 // Firebase wird jetzt schon VOR dem Login initialisiert (statt erst danach), weil der
 // Login selbst jetzt ein echter Firebase-Auth-Call ist, kein reiner Hash-Vergleich mehr.
