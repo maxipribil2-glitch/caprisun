@@ -20,6 +20,21 @@ const auth = getAuth(app);
 const rtdb = getDatabase(app);
 const db = getFirestore(app);
 
+// MAP FIX: showToast() war komplett undefiniert in lobby.js — jede Stelle die
+// versucht hat ne Erfolgs-/Fehler-Meldung zu zeigen (Daily Bonus, Invites,
+// Session-Recap, etc.) is mit ReferenceError gecrasht. Gleiche Implementierung
+// wie in roulette.js/shop.html übernommen für Konsistenz.
+function showToast(msg, isErr=false) {
+  let t = document.getElementById("toast");
+  if (!t) { t=document.createElement("div"); t.id="toast"; t.style.cssText="position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#1d1530;border:1.5px solid;border-radius:10px;padding:10px 18px;font-size:14px;font-family:'VT323',monospace;z-index:9999;pointer-events:none;max-width:320px;text-align:center;"; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.style.color = isErr ? "#ff3864" : "#39ff8c";
+  t.style.borderColor = isErr ? "#ff3864" : "#39ff8c";
+  t.style.opacity = "1";
+  clearTimeout(t._to);
+  t._to = setTimeout(() => { t.style.opacity="0"; }, 3200);
+}
+
 // games available on the platform — add more here as you build them
 // MAP FEATURE (Punkt 4): Games werden nach "zuletzt gespielt" sortiert statt fester
 // Reihenfolge. localStorage speichert Timestamps pro Game-ID, aktualisiert bei jedem
