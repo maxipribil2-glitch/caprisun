@@ -12,7 +12,7 @@
 //   -> Firebase hinzufügen -> eure Firebase Project ID ("illegalo-shopzone") eintragen
 // Erst DANACH kann `auth.jwt()->>'sub'` in den RLS-Policies die echte,
 // verifizierte Firebase-UID liefern (nicht fälschbar über den Client mehr!).
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { getAuth, onIdTokenChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { app } from "./firebase-config.js";
 
@@ -26,6 +26,21 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   accessToken: async () => {
     const user = firebaseAuthForSupabase.currentUser;
     return user ? await user.getIdToken() : null;
+  }
+});
+
+// MAP FIX (Coin-Anzeige-Bug): der accessToken-Callback oben greift zuverlässig
+// für normale REST-/RPC-Calls (.select(), .rpc()), ABER die Realtime-WebSocket-
+// Verbindung (genutzt für Live-Updates wie die Coin-Badge-Anzeige) braucht das
+// Token SEPARAT übergeben, sonst bleibt die Realtime-Verbindung unauthentifiziert
+// und Postgres-Change-Events kommen nie an (Live-Anzeige bleibt hängen/zeigt 0).
+// onIdTokenChanged feuert bei Login, Logout UND automatischem Token-Refresh.
+onIdTokenChanged(firebaseAuthForSupabase, async (user) => {
+  if (user) {
+    const token = await user.getIdToken();
+    supabase.realtime.setAuth(token);
+  } else {
+    supabase.realtime.setAuth(null);
   }
 });
 
