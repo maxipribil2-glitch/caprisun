@@ -74,7 +74,14 @@ onAuthStateChanged(auth, async (user) => {
   // MAP FIX: initialer Fetch (Realtime-Subscription liefert erst beim NÄCHSTEN
   // Update einen Wert, nicht sofort den aktuellen Stand — ohne das würde die
   // Badge erstmal "..." zeigen bis irgendwas sich ändert)
-  const { data: initial } = await supabase.from("users").select("gamocoins").eq("firebase_uid", user.uid).maybeSingle();
+  const { data: initial, error: initialErr } = await supabase.from("users").select("gamocoins").eq("firebase_uid", user.uid).maybeSingle();
+  if (initialErr) {
+    // MAP FIX: vorher wurde der Fehler hier komplett verschluckt (nur "data"
+    // destrukturiert, "error" nie angeschaut) — deswegen war nie sichtbar WARUM
+    // die Badge bei 0/leer hängen blieb.
+    console.error("[coinBadge] initial fetch failed:", initialErr, "for uid:", user.uid);
+  }
+  console.log("[coinBadge] fetched for uid", user.uid, "-> ", initial);
   if (initial) animateCoinsTo(initial.gamocoins ?? 0, el);
 
   supabase

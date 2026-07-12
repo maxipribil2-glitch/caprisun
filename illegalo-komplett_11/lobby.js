@@ -536,7 +536,9 @@ onAuthStateChanged(auth, (user) => {
   myName = user.displayName || user.email;
   whoEl.innerHTML = `eingeloggt als <span>${myName}</span>`;
   // MaxiCoins balance
+  console.log("[lobby] eingeloggt mit UID:", myUid);
   getBalance(myUid).then(coins => {
+    console.log("[lobby] getBalance() ergab:", coins, "für UID:", myUid);
     if (!sessionStorage.getItem("gc_session_start_balance")) {
       sessionStorage.setItem("gc_session_start_balance", String(coins));
     }
