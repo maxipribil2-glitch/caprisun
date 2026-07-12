@@ -82,6 +82,8 @@ async function gameOver() {
   sfx.lose ? sfx.lose() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "stacktower", score, at: serverTimestamp() });
+    } catch (e) { console.error("[stacktower] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score * 8, 500), "stacktower_score");
     loadLeaderboard();
   } catch (e) {}

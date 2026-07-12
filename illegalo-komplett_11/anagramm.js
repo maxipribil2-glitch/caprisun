@@ -97,6 +97,8 @@ async function endGame() {
   sfx.lose ? sfx.lose() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "anagramm", score, at: serverTimestamp() });
+    } catch (e) { console.error("[anagramm] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score * 60, 500), "anagramm_score");
     loadLeaderboard();
   } catch (e) {}

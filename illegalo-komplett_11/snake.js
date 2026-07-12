@@ -120,8 +120,10 @@ async function gameOver() {
     await addDoc(collection(db, "scores"), {
       uid: myUid, name: myName, game: "snake", score, createdAt: serverTimestamp()
     });
-    await awardGameReward(myUid, Math.floor(score / 2), "snake_score").catch(() => {});
-  } catch (e) {}
+  } catch (e) { console.error("[snake] Score-Submit fehlgeschlagen:", e); }
+  try {
+    await awardGameReward(myUid, Math.floor(score / 2), "snake_score");
+  } catch (e) { console.error("[snake] Coin-Vergabe fehlgeschlagen:", e); }
   loadLeaderboard();
 }
 

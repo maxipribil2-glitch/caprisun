@@ -91,6 +91,8 @@ async function gameOver() {
   sfx.lose ? sfx.lose() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "balloonpop", score, at: serverTimestamp() });
+    } catch (e) { console.error("[balloonpop] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score * 6, 500), "balloonpop_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

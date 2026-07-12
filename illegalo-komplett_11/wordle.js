@@ -95,14 +95,16 @@ async function submitGuess() {
 }
 
 async function finishGame(attempts) {
-  try {
-    if (attempts) {
+  if (attempts) {
+    try {
       await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "wordle", score: attempts, at: serverTimestamp() });
+    } catch (e) { console.error("[wordle] Score-Submit fehlgeschlagen:", e); }
+    try {
       await awardGameReward(myUid, Math.max(50, 500 - (attempts-1)*80), "wordle_score");
       sfx.coin ? sfx.coin() : null;
-      loadLeaderboard();
-    }
-  } catch (e) {}
+    } catch (e) { console.error("[wordle] Coin-Vergabe fehlgeschlagen:", e); }
+    loadLeaderboard();
+  }
 }
 
 submitBtn.addEventListener("click", submitGuess);

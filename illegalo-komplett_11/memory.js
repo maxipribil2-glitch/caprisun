@@ -72,9 +72,16 @@ async function finishGame() {
   const seconds = Math.floor((Date.now() - startTime) / 1000);
   statusEl.textContent = `🎉 Geschafft in ${moves} Zügen, ${seconds}s!`;
   sfx.win ? sfx.win() : null;
+  // MAP FIX (Wiederholungsbug, gleich wie minesweeper.js): coinAmount stand vorher als
+  // `const` INNERHALB des ersten try-Blocks — im zweiten try-Block (awardGameReward)
+  // war es dadurch außerhalb seines Scopes und JEDER Spieldurchlauf warf hier ein
+  // ReferenceError, bevor Coins vergeben werden konnten.
+  let coinAmount = 20;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "memory", score: moves, at: serverTimestamp() });
-    const coinAmount = Math.max(20, Math.round(500 - (moves - 8) * 25));
+    coinAmount = Math.max(20, Math.round(500 - (moves - 8) * 25));
+  } catch (e) { console.error("[memory] Score-Submit fehlgeschlagen:", e); }
+  try {
     await awardGameReward(myUid, coinAmount, "memory_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

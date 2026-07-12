@@ -30,6 +30,11 @@ const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart-btn");
 const leaveBtn = document.getElementById("leave-btn");
+// MAP FIX (Wiederholungsbug, gleicher wie flappy.js): lbEl war nur INNERHALB von
+// loadLeaderboard() deklariert — submitScore()'s catch-Block referenzierte lbEl obwohl
+// es dort nicht existierte -> ReferenceError sobald awardGameReward() failte. Jetzt
+// einmal auf Modul-Ebene geholt.
+const lbEl = document.getElementById("leaderboard");
 
 renderShopAd("shop-ad");
 
@@ -172,20 +177,18 @@ async function submitScore() {
     });
     // MAP FIX (Deep Check): gleicher Bug wie flappy.js — Score wurde gespeichert,
     // aber keine Coins vergeben. 2048-Zocken hat sich bisher gar nicht gelohnt!
+    } catch (e) { console.error("[2048] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(Math.round(score/20), 500), "2048_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
   } catch (e) {
-    // MAP FIX (Deep Check Bug): "lbEl" existierte in diesem Scope nicht (gehörte zu
-    // loadLeaderboard()) — hätte einen ReferenceError geworfen statt der Fehlermeldung.
-    const lbErrEl = document.getElementById("leaderboard");
-    if (lbErrEl) lbErrEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
     console.error("[2048] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index:", e);
   }
 }
 
 async function loadLeaderboard() {
-  const lbEl = document.getElementById("leaderboard");
   try {
     const q = query(collection(db, "scores"), where("game", "==", "2048"), orderBy("score", "desc"), limit(5));
     const snap = await getDocs(q);

@@ -170,6 +170,8 @@ async function gameOver() {
   sfx.lose ? sfx.lose() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "bubbleshooter", score, at: serverTimestamp() });
+    } catch (e) { console.error("[bubbleshooter] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score, 500), "bubbleshooter_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

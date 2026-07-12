@@ -83,13 +83,15 @@ async function failGame() {
   statusEl.textContent = `Falsch! Du bist bei Runde ${round} gescheitert. Score: ${score}`;
   restartBtn.classList.remove("hidden");
   sfx.lose ? sfx.lose() : null;
-  try {
-    if (score > 0) {
+  if (score > 0) {
+    try {
       await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "simon", score, at: serverTimestamp() });
+    } catch (e) { console.error("[simon] Score-Submit fehlgeschlagen:", e); }
+    try {
       await awardGameReward(myUid, Math.min(score * 40, 500), "simon_score");
-    }
-    loadLeaderboard();
-  } catch (e) {}
+    } catch (e) { console.error("[simon] Coin-Vergabe fehlgeschlagen:", e); }
+  }
+  loadLeaderboard();
 }
 
 restartBtn.addEventListener("click", resetGame);

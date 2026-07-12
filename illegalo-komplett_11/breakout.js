@@ -177,12 +177,24 @@ async function gameOver() {
 }
 
 async function submitScore() {
+  // MAP FIX: vorher liefen Score-Submit und Coin-Vergabe im GLEICHEN try-Block,
+  // hintereinander — falls der Firestore-Score-Write failte (egal aus welchem
+  // Grund), lief die Coin-Vergabe NIE, weil sie danach im selben Block stand,
+  // und der äußere catch(e){} hat alles still verschluckt, kein Logging. Jetzt
+  // beide komplett unabhängig, mit sichtbarem Error-Logging.
   try {
     await addDoc(collection(db, "scores"), {
       uid: myUid, name: myName, game: "breakout", score, createdAt: serverTimestamp()
     });
-    await awardGameReward(myUid, Math.floor(score / 2), "breakout_score").catch(() => {});
-  } catch (e) {}
+  } catch (e) {
+    console.error("[breakout] Score-Submit fehlgeschlagen:", e);
+  }
+  try {
+    const rewarded = await awardGameReward(myUid, Math.floor(score / 2), "breakout_score");
+    if (!rewarded) console.warn("[breakout] Keine Coins vergeben (Score zu niedrig, Cooldown aktiv, oder Fehler)");
+  } catch (e) {
+    console.error("[breakout] Coin-Vergabe fehlgeschlagen:", e);
+  }
   loadLeaderboard();
 }
 

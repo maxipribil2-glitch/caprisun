@@ -20,6 +20,10 @@ const minesLeftEl = document.getElementById("mines-left");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart-btn");
 const leaveBtn = document.getElementById("leave-btn");
+// MAP FIX (Wiederholungsbug, gleich wie flappy.js/game2048.js): lbEl war nur INNERHALB
+// von loadLeaderboard() deklariert — submitResult()'s catch-Block referenzierte lbEl
+// obwohl es dort gar nicht existierte -> ReferenceError sobald awardGameReward() failte.
+const lbEl = document.getElementById("leaderboard");
 
 renderShopAd("shop-ad");
 
@@ -139,12 +143,20 @@ function checkWinLoss() {
 }
 
 async function submitResult(seconds) {
+  // MAP FIX (Bug): coinAmount stand vorher als `const` INNERHALB des ersten try-Blocks —
+  // im zweiten try-Block (awardGameReward-Call) war es dadurch außerhalb seines Scopes
+  // und JEDER Spieldurchlauf (nicht nur Fehlerfälle!) warf hier ein ReferenceError, bevor
+  // Coins vergeben oder das Leaderboard neu geladen werden konnten. Jetzt vor beiden
+  // try-Blöcken mit `let` deklariert, damit beide Zugriff drauf haben.
+  let coinAmount = 20;
   try {
     await addDoc(collection(db, "scores"), {
       uid: myUid, name: myName, game: "minesweeper", score: seconds, at: serverTimestamp()
     });
     // Coins: je schneller desto mehr. 500 Coins bei <=30s, linear runter, min 20 Coins.
-    const coinAmount = Math.max(20, Math.round(500 - (seconds - 30) * 4));
+    coinAmount = Math.max(20, Math.round(500 - (seconds - 30) * 4));
+  } catch (e) { console.error("[minesweeper] Score-Submit fehlgeschlagen:", e); }
+  try {
     await awardGameReward(myUid, coinAmount, "minesweeper_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
@@ -155,7 +167,6 @@ async function submitResult(seconds) {
 }
 
 async function loadLeaderboard() {
-  const lbEl = document.getElementById("leaderboard");
   try {
     const q = query(collection(db, "scores"), where("game", "==", "minesweeper"), orderBy("score", "asc"), limit(5));
     const snap = await getDocs(q);

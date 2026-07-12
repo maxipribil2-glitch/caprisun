@@ -130,6 +130,8 @@ async function finishGame() {
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "sudoku", score: seconds, at: serverTimestamp() });
     const base = Math.max(20, 500 - seconds * 2);
+    } catch (e) { console.error("[sudoku] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(Math.round(base * DIFFICULTIES[difficulty].mult), 500), "sudoku_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

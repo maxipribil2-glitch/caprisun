@@ -100,6 +100,8 @@ async function endGame() {
   sfx.win ? sfx.win() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "stroop", score, at: serverTimestamp() });
+    } catch (e) { console.error("[stroop] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score * 12, 500), "stroop_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

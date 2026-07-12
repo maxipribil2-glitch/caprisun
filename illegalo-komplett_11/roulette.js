@@ -463,15 +463,6 @@ function handleTableUpdate(data) {
     if (lastPhase !== "spinning" && data.result != null) {
       animateSpin(data.result, () => showResult(data));
     }
-    // MAP FIX (Deep Check Bug — Multiplayer-Wetten): vorher rief NUR der Client der
-    // die Phasenwechsel-Transaction in advancePhase() gewonnen hat commitBets() auf
-    // (nur für SEINE eigenen Wetten). Bei 2+ gleichzeitig wettenden Spielern wurden
-    // alle anderen NIE abgerechnet (kein Abzug, kein Gewinn). Jetzt: JEDER Client
-    // committed hier zentral seine eigenen Wetten sobald das Ergebnis feststeht,
-    // unabhängig davon wer die Transaction gewonnen hat. commitBets() ist bereits
-    // idempotent über "committedRounds" + roundKey, ruft also pro Runde nur einmal
-    // pro Client wirklich was ab (und tut nichts falls keine eigenen Wetten liegen).
-    commitBets(data.result, "round:" + data.phaseEnds);
   } else if (currentPhase === "result") {
     if (phaseLabel) phaseLabel.textContent = "✅ ERGEBNIS";
     if (spinBtn) { spinBtn.disabled = true; }
@@ -514,10 +505,9 @@ async function advancePhase(data) {
         wonTransaction = true;
       });
     } catch (e) {}
-    // MAP FIX (Deep Check Bug): commitBets() lief hier vorher NUR für den Client der
-    // die Transaction gewonnen hat — jetzt zentral in handleTableUpdate() für JEDEN
-    // Client beim Beobachten von phase:"spinning" (siehe dort für Details).
-    void wonTransaction;
+    if (wonTransaction) {
+      await commitBets(result, "round:" + (data.phaseEnds || now));
+    }
   } else if (data.phase === "spinning") {
     try {
       await runTransaction(db, async (tx) => {
@@ -667,27 +657,37 @@ function renderHistory(hist) {
 // MAP FIX: schreibt "players" nicht mehr platt auf {} — das hat vorher die Wetten
 // von JEDEM anderen Spieler am Tisch gelöscht, bevor die überhaupt committen konnten.
 // Jetzt wird nur phase/result/phaseEnds geändert, "players" bleibt wie's war.
+// MAP FIX (Wiederholungsbug — Wetten-Race, gleiche Ursache wie in advancePhase()):
+// hier stand vorher ein ungeschützter getDoc()+updateDoc() statt runTransaction — wenn
+// 2 Clients fast gleichzeitig auf "Jetzt drehen" klickten, generierte JEDER seine eigene
+// "result"-Zahl und der letzte Schreibzugriff gewann (Ergebnis konnte sich nach
+// Animationsstart nochmal ändern). advancePhase() wurde damals schon auf Transaction
+// umgestellt, requestSpin() aber nicht — jetzt gleiche Transaction-Logik hier auch,
+// nur der erste Call gewinnt.
 window.requestSpin = async () => {
   if (currentPhase !== "betting") return;
   const totalBetAmount = Object.values(localBets).reduce((s,b)=>s+b.amount,0);
   if (!totalBetAmount) { showToast("Erst eine Wette platzieren!", true); return; }
-  const snap = await getDoc(tableRef);
-  const data = snap.exists() ? snap.data() : {};
   const result = Math.floor(Math.random() * (variant==="us"?38:37));
   const now = Date.now();
-  await updateDoc(tableRef, {
-    phase: "spinning",
-    phaseEnds: now + SPIN_SECS*1000,
-    result,
-    variant
-  });
-  // MAP FIX (Deep Check Bug): commitBets() nicht mehr direkt hier mit eigenem
-  // "spin:"-Key aufrufen — das lief unter einem ANDEREN roundKey als der zentrale
-  // Commit in handleTableUpdate() ("round:"+phaseEnds), hätte also zu einer
-  // DOPPELTEN Abbuchung/Auszahlung für den Spieler geführt der auf "Jetzt drehen"
-  // klickt. Der zentrale Commit in handleTableUpdate() erledigt das jetzt für
-  // wirklich jeden Client (inkl. diesen hier) genau einmal pro Runde.
-  void data;
+  let wonTransaction = false;
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(tableRef);
+      const current = snap.exists() ? snap.data() : {};
+      if (current.phase !== "betting") return; // ein anderer Client war schneller
+      tx.update(tableRef, {
+        phase: "spinning",
+        phaseEnds: now + SPIN_SECS*1000,
+        result,
+        variant
+      });
+      wonTransaction = true;
+    });
+  } catch (e) {}
+  if (wonTransaction) {
+    await commitBets(result, "spin:" + now);
+  }
 };
 
 // ── Sound-Effekte (via Web Audio, kein External Dep nötig) ──

@@ -19,6 +19,11 @@ const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart-btn");
 const leaveBtn = document.getElementById("leave-btn");
+// MAP FIX (Wiederholungsbug): lbEl war nur INNERHALB von loadLeaderboard() deklariert
+// (const, block-scoped) — gameOver()'s catch-Block hat lbEl referenziert obwohl es dort
+// gar nicht existierte -> ReferenceError, sobald awardGameReward() failte. Jetzt einmal
+// auf Modul-Ebene geholt, so wie alle anderen DOM-Refs hier oben.
+const lbEl = document.getElementById("leaderboard");
 
 renderShopAd("shop-ad");
 
@@ -125,6 +130,8 @@ async function gameOver() {
     });
     // MAP FIX (Deep Check): flappy.js schrieb den Score, hat aber NIE Coins vergeben —
     // einziges Solo-Game wo Spielen sich für Coins gar nicht gelohnt hat!
+    } catch (e) { console.error("[flappy] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score * 20, 500), "flappy_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();
@@ -132,11 +139,7 @@ async function gameOver() {
     // MAP FIX: vorher stiller catch(e){} — Leaderboard blieb für immer bei "Lade..."
     // hängen wenn die Query failte (meistens fehlender Firestore Composite-Index für
     // where()+orderBy() zusammen). Jetzt: sichtbare Fehlermeldung + Console-Hinweis.
-    // MAP FIX (Deep Check Bug): "lbEl" existierte in diesem Scope gar nicht (das war
-    // eine Variable aus loadLeaderboard()) — hätte einen ReferenceError geworfen statt
-    // die Fehlermeldung zu zeigen. Jetzt: Element direkt neu geholt.
-    const lbErrEl = document.getElementById("leaderboard");
-    if (lbErrEl) lbErrEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
+    lbEl.innerHTML = `<li class="empty">Konnte Leaderboard nicht laden.</li>`;
     console.error("[flappy] Leaderboard-Query failed — evtl. fehlt ein Firestore Composite-Index (Konsole-Link im Error oben checken):", e);
   }
 }
@@ -164,7 +167,6 @@ restartBtn.addEventListener("click", () => { resetGame(); draw(); });
 leaveBtn.addEventListener("click", () => { cancelAnimationFrame(rafHandle); window.location.href = "lobby.html"; });
 
 async function loadLeaderboard() {
-  const lbEl = document.getElementById("leaderboard");
   try {
     const q = query(collection(db, "scores"), where("game", "==", "flappy"), orderBy("score", "desc"), limit(5));
     const snap = await getDocs(q);

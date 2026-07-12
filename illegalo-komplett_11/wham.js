@@ -94,6 +94,8 @@ async function endGame() {
   sfx.win ? sfx.win() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "wham", score, at: serverTimestamp() });
+    } catch (e) { console.error("[wham] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(score*15, 500), "wham_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

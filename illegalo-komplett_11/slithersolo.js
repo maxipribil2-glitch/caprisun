@@ -136,6 +136,8 @@ async function gameOver() {
   sfx.lose ? sfx.lose() : null;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "slithersolo", score: player.segs.length, at: serverTimestamp() });
+    } catch (e) { console.error("[slithersolo] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(player.segs.length*8, 500), "slithersolo_score");
     loadLeaderboard();
   } catch (e) {}
