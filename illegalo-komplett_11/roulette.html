@@ -94,6 +94,20 @@
         </div>
         <div class="wheel-wrap">
           <canvas id="rl-canvas" width="240" height="240"></canvas>
+          <script>
+            // MAP FEATURE: Rad-Größe an den Screen anpassen — auf iPad im Querformat
+            // (oder generell große Screens) deutlich größer, damit's wirklich wie
+            // Fullscreen wirkt statt nur der Container drumrum größer zu machen.
+            // Läuft VOR dem type="module"-Script (das lädt immer deferred), damit
+            // roulette.js die richtige canvas.width/height schon beim Start sieht.
+            (function() {
+              var canvas = document.getElementById("rl-canvas");
+              var isLandscapeTablet = window.innerWidth >= 768 && window.innerWidth > window.innerHeight;
+              var size = isLandscapeTablet ? Math.min(window.innerHeight * 0.6, 480) : 240;
+              canvas.width = size;
+              canvas.height = size;
+            })();
+          </script>
           <div class="result-flash" id="result-display">—</div>
         </div>
 
