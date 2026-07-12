@@ -351,6 +351,13 @@ button,input{font-family:'Inter',sans-serif;}
           <div id="coin-mgmt-balance-preview" style="font-size:12px;color:var(--sub, #888);"></div>
         </div>
 
+        <div class="storage-hdr"><h3>🎰 Bonus-Spin-Preis</h3><span class="storage-count" id="spin-price-status"></span></div>
+        <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
+          <label for="spin-price-input" style="font-size:12px;">Preis pro Bonus Spin (in Coins)</label>
+          <input id="spin-price-input" type="number" step="1" min="1" placeholder="z.B. 1000" style="padding:6px;">
+          <button id="spin-price-submit-btn" style="margin-top:4px;">Preis speichern ✅</button>
+        </div>
+
         <div class="storage-hdr"><h3>🚫 blockedUsers</h3><span class="storage-count" id="blocked-count">0 docs</span></div>
         <div class="storage-box"><pre id="blocked-json">Lädt…</pre></div>
       </div>
@@ -540,6 +547,7 @@ import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, a
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { adminAddCoins, getBalance } from "./gamocoin.js";
+import { supabase } from "./supabase-config.js";
 
 // Firebase wird jetzt schon VOR dem Login initialisiert (statt erst danach), weil der
 // Login selbst jetzt ein echter Firebase-Auth-Call ist, kein reiner Hash-Vergleich mehr.
@@ -954,6 +962,40 @@ document.getElementById("coin-mgmt-submit-btn")?.addEventListener("click", async
 });
 
 loadCoinMgmtUsers();
+
+// MAP FEATURE: Bonus-Spin-Preis im Dev Panel einstellbar machen — läuft über
+// Supabase (gc_config-Tabelle), nicht über Firestore, weil das Bonus-Spin-
+// System komplett auf Supabase läuft.
+async function loadSpinPrice() {
+  const input = document.getElementById("spin-price-input");
+  const statusEl = document.getElementById("spin-price-status");
+  try {
+    const { data, error } = await supabase.from("gc_config").select("bonus_spin_price").eq("id", "site").maybeSingle();
+    if (error) throw error;
+    input.value = data?.bonus_spin_price ?? 1000;
+  } catch (e) {
+    statusEl.textContent = "Konnte Preis nicht laden.";
+    console.error("[dev] loadSpinPrice failed:", e);
+  }
+}
+loadSpinPrice();
+
+document.getElementById("spin-price-submit-btn")?.addEventListener("click", async () => {
+  const input = document.getElementById("spin-price-input");
+  const statusEl = document.getElementById("spin-price-status");
+  const newPrice = parseInt(input.value, 10);
+  if (isNaN(newPrice) || newPrice < 1) { statusEl.textContent = "Ungültiger Preis."; return; }
+  try {
+    const { error } = await supabase.from("gc_config").update({ bonus_spin_price: newPrice }).eq("id", "site");
+    if (error) throw error;
+    statusEl.textContent = `✅ Gespeichert: ${newPrice} Coins`;
+    showToast(`Bonus-Spin-Preis auf ${newPrice} Coins gesetzt 🎰`);
+  } catch (e) {
+    statusEl.textContent = "❌ Fehler beim Speichern.";
+    showToast("Preis konnte nicht gespeichert werden — bist du als Staff eingeloggt?", true);
+    console.error("[dev] saveSpinPrice failed:", e);
+  }
+});
 
 document.getElementById("coin-mgmt-undo-btn")?.addEventListener("click", async () => {
   if (!lastCoinMgmtAction) return;

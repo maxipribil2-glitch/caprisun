@@ -29,7 +29,18 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
   myUid = user.uid;
   await refreshBonusSpins();
+  await refreshSpinPrice();
 });
+
+let bonusSpinPrice = 1000;
+async function refreshSpinPrice() {
+  try {
+    const { data } = await supabase.from("gc_config").select("bonus_spin_price").eq("id", "site").maybeSingle();
+    bonusSpinPrice = data?.bonus_spin_price ?? 1000;
+  } catch (e) { console.error("[slots] refreshSpinPrice failed:", e); }
+  const priceEl = document.getElementById("buy-spin-price");
+  if (priceEl) priceEl.textContent = bonusSpinPrice >= 1000 ? (bonusSpinPrice/1000).toFixed(bonusSpinPrice % 1000 === 0 ? 0 : 1) + "k" : bonusSpinPrice;
+}
 
 async function refreshBonusSpins() {
   try {
@@ -109,8 +120,8 @@ spinBtn.addEventListener("click", async () => {
 buySpinBtn.addEventListener("click", async () => {
   buySpinBtn.disabled = true;
   const currentBalance = await getBalance(myUid);
-  if (currentBalance < 1000) {
-    statusEl.textContent = `Nicht genug Coins — du hast ${currentBalance} 🪙, brauchst 1000.`;
+  if (currentBalance < bonusSpinPrice) {
+    statusEl.textContent = `Nicht genug Coins — du hast ${currentBalance} 🪙, brauchst ${bonusSpinPrice}.`;
     buySpinBtn.disabled = false;
     return;
   }
@@ -118,10 +129,10 @@ buySpinBtn.addEventListener("click", async () => {
   if (res.ok) {
     bonusSpins++;
     updateBonusInfo();
-    statusEl.textContent = "🎁 Extra-Spin gekauft! Klick auf DREHEN.";
+    statusEl.textContent = "🎁 Bonus Spin gekauft! Klick auf DREHEN.";
     sfx.coin ? sfx.coin() : null;
   } else if (res.reason === "insufficient") {
-    statusEl.textContent = `Nicht genug Coins — du hast ${res.balance} 🪙, brauchst 1000.`;
+    statusEl.textContent = `Nicht genug Coins — du hast ${res.balance} 🪙, brauchst ${res.cost || bonusSpinPrice}.`;
   } else {
     statusEl.textContent = "Kauf fehlgeschlagen, versuch's nochmal.";
   }

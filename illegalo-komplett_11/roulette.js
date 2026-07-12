@@ -336,6 +336,11 @@ function renderBetChips() {
 // ── Roulette Rad ──
 const canvas  = document.getElementById("rl-canvas");
 const ctx     = canvas.getContext("2d");
+// MAP FIX: doppelte Absicherung gegen negativen/zu kleinen Radius (crasht sonst
+// ctx.arc() in der Dauerschleife und reißt den ganzen Tab mit runter) — falls
+// die Canvas aus irgendeinem Grund zu klein reinkommt, wird sie hier notfalls
+// hochkorrigiert, bevor überhaupt irgendwas gezeichnet wird.
+if (canvas.width < 100) { canvas.width = 240; canvas.height = 240; }
 const CX = canvas.width/2, CY = canvas.height/2, R = CX - 6;
 let wheelAngle = 0, idleAnimId = null;
 

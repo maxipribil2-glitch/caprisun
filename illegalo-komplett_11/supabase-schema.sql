@@ -112,7 +112,9 @@ insert into site_status (id) values ('main') on conflict (id) do nothing;
 -- ── gcConfig (Gamecenter-Maintenance) ──
 create table if not exists gc_config (
   id text primary key default 'site',
-  maintenance boolean not null default false
+  maintenance boolean not null default false,
+  -- MAP FEATURE: Preis für den Bonus-Spin-Kauf, im Dev Panel einstellbar
+  bonus_spin_price bigint not null default 1000
 );
 insert into gc_config (id) values ('site') on conflict (id) do nothing;
 
@@ -312,14 +314,18 @@ create or replace function buy_bonus_spin(p_uid text)
 returns jsonb language plpgsql as $$
 declare
   v_balance bigint;
-  v_cost bigint := 1000;
+  v_cost bigint;
 begin
   if p_uid != auth.jwt()->>'sub' then
     return jsonb_build_object('ok', false, 'reason', 'unauthorized');
   end if;
+  -- MAP FEATURE: Preis kommt jetzt aus gc_config (im Dev Panel einstellbar)
+  -- statt fest verdrahtet zu sein.
+  select bonus_spin_price into v_cost from gc_config where id = 'site';
+  if v_cost is null then v_cost := 1000; end if;
   select gamocoins into v_balance from users where firebase_uid = p_uid for update;
   if v_balance is null then return jsonb_build_object('ok', false, 'reason', 'user_not_found'); end if;
-  if v_balance < v_cost then return jsonb_build_object('ok', false, 'reason', 'insufficient', 'balance', v_balance); end if;
+  if v_balance < v_cost then return jsonb_build_object('ok', false, 'reason', 'insufficient', 'balance', v_balance, 'cost', v_cost); end if;
   update users set gamocoins = gamocoins - v_cost, bonus_spins = bonus_spins + 1 where firebase_uid = p_uid;
   return jsonb_build_object('ok', true, 'balance', v_balance - v_cost);
 end;

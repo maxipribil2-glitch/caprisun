@@ -1,5 +1,5 @@
 // MAP — shared Firebase init, imported by auth.js / lobby.js / game.js / snake.js / snakeio.js / katapult.js / maintenance.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 
 // Läuft über das GLEICHE Firebase-Projekt wie Illegalo (illegalo-shopzone) — kein eigenes
 // Gamecenter-Projekt mehr. Realtime Database (für Online-Status, onDisconnect) läuft jetzt
@@ -17,4 +17,4 @@ const firebaseConfig = {
   databaseURL: "https://illegalo-shopzone-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
-export const app = initializeApp(firebaseConfig);
+export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);

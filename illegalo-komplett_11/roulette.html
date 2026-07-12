@@ -100,10 +100,15 @@
             // Fullscreen wirkt statt nur der Container drumrum größer zu machen.
             // Läuft VOR dem type="module"-Script (das lädt immer deferred), damit
             // roulette.js die richtige canvas.width/height schon beim Start sieht.
+            // MAP FIX: Mindestgröße von 200px erzwungen — falls window.innerHeight
+            // beim allerersten Laden noch 0/unfertig war, wurde die Canvas-Größe 0,
+            // was in roulette.js zu NEGATIVEM Radius führte -> ctx.arc() crashte in
+            // der Dauerschleife (requestAnimationFrame) den kompletten Tab.
             (function() {
               var canvas = document.getElementById("rl-canvas");
               var isLandscapeTablet = window.innerWidth >= 768 && window.innerWidth > window.innerHeight;
               var size = isLandscapeTablet ? Math.min(window.innerHeight * 0.6, 480) : 240;
+              size = Math.max(size, 200); // niemals kleiner als 200px, egal was innerHeight grad sagt
               canvas.width = size;
               canvas.height = size;
             })();
