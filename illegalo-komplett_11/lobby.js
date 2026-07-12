@@ -748,6 +748,15 @@ function listenLiveMatches() {
       // eigentlichen Match-Teilnehmer), heißt Zuschauer können hier nicht versehentlich
       // als "aktiver Spieler" auftauchen — war schon safe, Check bleibt trotzdem explizit.
       if (!room.players || room.players.length !== 2) return;
+      // MAP FIX: Zombie-Rooms rausfiltern — Matches die zwar noch status:"active"
+      // haben, aber schon Wochen alt sind (abgebrochen ohne "Verlassen" zu klicken,
+      // Timeout-Fallback hat aus irgendeinem Grund nicht gegriffen). Ohne den Filter
+      // hier zeigte die "Live"-Liste JEDEN aktiven Room, egal wie uralt — die
+      // eigentliche Datenbereinigung (cleanupOldRooms) löscht nur "finished"-Rooms,
+      // nicht ewig hängende "active"-Zombies.
+      const createdMs = room.createdAt?.toMillis?.() || 0;
+      const THREE_HOURS = 3 * 60 * 60 * 1000;
+      if (Date.now() - createdMs > THREE_HOURS) return;
       const [p1, p2] = room.players;
       const name1 = room.playerNames?.[p1] || "Spieler";
       const name2 = room.playerNames?.[p2] || "Spieler";
@@ -878,9 +887,13 @@ function listenActiveRooms() {
   if (!spectateListEl) return;
   const q = query(collection(db, "rooms"), where("status", "==", "active"));
   onSnapshot(q, snap => {
+    const THREE_HOURS = 3 * 60 * 60 * 1000;
     const rooms = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(r => r.players && !r.players.includes(myUid)) // nicht eigene Matches
+      // MAP FIX: uralte "active"-Zombie-Rooms rausfiltern (gleicher Grund wie
+      // in listenLiveMatches — nur wirklich aktuelle Matches gelten als "live")
+      .filter(r => Date.now() - (r.createdAt?.toMillis?.() || 0) <= THREE_HOURS)
       .slice(0, 8);
     if (!rooms.length) {
       spectateListEl.innerHTML = `<div class="empty">Keine aktiven Matches gerade.</div>`;

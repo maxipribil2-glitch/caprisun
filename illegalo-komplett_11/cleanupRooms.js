@@ -30,5 +30,28 @@ export async function cleanupOldRooms(olderThanHours = 24) {
       deleted++;
     } catch (e) {}
   }
-  return deleted;
+
+  // MAP FIX: vorher wurden NUR "finished"-Rooms aufgeräumt — Matches die
+  // abgebrochen wurden (Tab zu ohne "Verlassen", Timeout-Fallback hat aus
+  // irgendeinem Grund nicht gegriffen) blieben für IMMER bei status:"active"
+  // hängen und tauchten wochenlang in der "Live"-Anzeige auf. Zombie-"active"-
+  // Rooms die älter als olderThanHours sind, gelten jetzt auch als aufräumbar
+  // (deutlich großzügigerer Cutoff als bei "finished", damit wirklich noch
+  // laufende Matches niemals versehentlich gelöscht werden).
+  const zombieCutoff = Timestamp.fromMillis(Date.now() - Math.max(olderThanHours, 6) * 60 * 60 * 1000);
+  const qZombies = query(
+    collection(db, "rooms"),
+    where("status", "==", "active"),
+    where("createdAt", "<", zombieCutoff)
+  );
+  const zombieSnap = await getDocs(qZombies);
+  let zombiesDeleted = 0;
+  for (const docSnap of zombieSnap.docs) {
+    try {
+      await deleteDoc(doc(db, "rooms", docSnap.id));
+      zombiesDeleted++;
+    } catch (e) {}
+  }
+
+  return deleted + zombiesDeleted;
 }
