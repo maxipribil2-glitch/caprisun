@@ -89,6 +89,37 @@ export async function claimDailyBonus(uid) {
 }
 
 // ── Einarmiger Bandit (24h-Cooldown, Jackpot-Logik, atomar über RPC) ──
+// MAP FEATURE: Daily Challenge claimen -> +1 Bonus-Spin (1x/Tag)
+export async function claimChallengeReward(uid) {
+  try {
+    const { data, error } = await supabase.rpc("claim_challenge_reward", { p_uid: uid });
+    if (error) { console.error("[gamocoin] claimChallengeReward failed:", error); return { claimed: false }; }
+    return { claimed: data.claimed, nextClaim: data.next_claim ? new Date(data.next_claim) : null };
+  } catch(e) { console.error("[gamocoin] claimChallengeReward failed:", e); return { claimed: false }; }
+}
+
+// MAP FEATURE: Bonus-Spin für 1000 Coins kaufen
+export async function buyBonusSpin(uid) {
+  try {
+    const { data, error } = await supabase.rpc("buy_bonus_spin", { p_uid: uid });
+    if (error) { console.error("[gamocoin] buyBonusSpin failed:", error); return { ok: false, reason: "error" }; }
+    return { ok: data.ok, reason: data.reason, balance: data.balance };
+  } catch(e) { console.error("[gamocoin] buyBonusSpin failed:", e); return { ok: false, reason: "error" }; }
+}
+
+// MAP FEATURE: Bonus-Spin einlösen (aus Challenge oder gekauft)
+export async function useBonusSpin(uid) {
+  try {
+    const { data, error } = await supabase.rpc("use_bonus_spin", { p_uid: uid });
+    if (error) { console.error("[slots] useBonusSpin failed:", error); return { spun: false, reason: "error" }; }
+    if (!data.spun) return { spun: false, reason: data.reason };
+    return {
+      spun: true, isJackpot: data.is_jackpot, coinsWon: data.coins_won, voucherWon: data.voucher_won,
+      reels: data.is_jackpot ? ["7️⃣","7️⃣","7️⃣"] : ["🍒","🍋","🔔","⭐","💎"].sort(()=>Math.random()-0.5).slice(0,3)
+    };
+  } catch(e) { console.error("[slots] useBonusSpin failed:", e); return { spun: false, reason: "error" }; }
+}
+
 export async function spinSlotMachine(uid) {
   try {
     const { data, error } = await supabase.rpc("spin_slot_machine", { p_uid: uid });

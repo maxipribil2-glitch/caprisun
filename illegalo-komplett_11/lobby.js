@@ -1,7 +1,7 @@
 // MAP — lobby logic: who's online (Realtime Database presence, instant onDisconnect) + invites (Firestore)
 import { app } from "./firebase-config.js";
 import { renderShopAd } from "./ads.js";
-import { getBalance, formatCoins, claimDailyBonus } from "./gamocoin.js";
+import { getBalance, formatCoins, claimDailyBonus, claimChallengeReward } from "./gamocoin.js";
 import { toggleLang, applyLang } from "./i18n.js";
 window._toggleLang = toggleLang;
 applyLang();
@@ -515,9 +515,26 @@ function renderDailyChallenge() {
   el.innerHTML = `<div class="challenge-card">
     <div class="challenge-game">${ch.name}</div>
     <div class="challenge-rule">${ch.rule}</div>
+    <!-- MAP FEATURE: Bonus-Spin-Hinweis + Claim-Button -->
+    <div class="challenge-meta" style="color:var(--am,#f59e0b);margin-top:6px;">🎰 Aufgabe geschafft? Gibt 1 Gratis-Spin am einarmigen Banditen!</div>
     <div class="challenge-meta">🔄 Reset: ${resetTime}</div>
     ${isArcade ? `<a href="${ch.page}" class="btn" style="display:inline-block;margin-top:12px;font-size:11px;">Jetzt spielen →</a>` : ""}
+    <button id="claim-challenge-btn" style="display:block;margin-top:10px;font-size:11px;">✅ Aufgabe erledigt — Bonus-Spin holen</button>
+    <div id="claim-challenge-status" style="font-size:11px;margin-top:6px;color:var(--sub,#888);"></div>
   </div>`;
+  document.getElementById("claim-challenge-btn")?.addEventListener("click", async () => {
+    const statusEl = document.getElementById("claim-challenge-status");
+    const res = await claimChallengeReward(myUid);
+    if (res.claimed) {
+      statusEl.textContent = "🎉 Bonus-Spin gutgeschrieben! Geh zum einarmigen Banditen.";
+      showToast("🎰 +1 Bonus-Spin! Nutz ihn beim Banditen.");
+    } else if (res.nextClaim) {
+      const hoursLeft = Math.ceil((res.nextClaim - Date.now()) / 3600000);
+      statusEl.textContent = `Heute schon geclaimt — nochmal in ~${hoursLeft}h.`;
+    } else {
+      statusEl.textContent = "Ging grad nicht, versuch's nochmal.";
+    }
+  });
 }
 renderDailyChallenge();
 

@@ -13,6 +13,11 @@ create table if not exists users (
   last_slot_spin timestamptz,
   free_delivery_voucher boolean not null default false,
   live_drop_session_total bigint not null default 0,
+  -- MAP FEATURE: Bonus-Spins fürs einarmige-Banditen-System — getrennt vom
+  -- normalen last_slot_spin (24h-Cooldown), damit Bonus-Spins (aus Daily
+  -- Challenge oder gekauft) den normalen täglichen Gratis-Spin nicht anfassen.
+  bonus_spins int not null default 0,
+  last_challenge_claim timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -281,6 +286,70 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'user_not_found');
   end if;
   return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- MAP FEATURE: Daily Challenge claimen -> +1 Bonus-Spin, 1x pro Tag
+create or replace function claim_challenge_reward(p_uid text)
+returns jsonb language plpgsql as $$
+declare
+  v_last timestamptz;
+begin
+  if p_uid != auth.jwt()->>'sub' then
+    return jsonb_build_object('claimed', false, 'reason', 'unauthorized');
+  end if;
+  select last_challenge_claim into v_last from users where firebase_uid = p_uid for update;
+  if v_last is not null and now() - v_last < interval '24 hours' then
+    return jsonb_build_object('claimed', false, 'reason', 'too_soon', 'next_claim', v_last + interval '24 hours');
+  end if;
+  update users set bonus_spins = bonus_spins + 1, last_challenge_claim = now() where firebase_uid = p_uid;
+  return jsonb_build_object('claimed', true);
+end;
+$$;
+
+-- MAP FEATURE: Bonus-Spin für 1000 Coins kaufen (kein Tages-Limit, mehrfach möglich)
+create or replace function buy_bonus_spin(p_uid text)
+returns jsonb language plpgsql as $$
+declare
+  v_balance bigint;
+  v_cost bigint := 1000;
+begin
+  if p_uid != auth.jwt()->>'sub' then
+    return jsonb_build_object('ok', false, 'reason', 'unauthorized');
+  end if;
+  select gamocoins into v_balance from users where firebase_uid = p_uid for update;
+  if v_balance is null then return jsonb_build_object('ok', false, 'reason', 'user_not_found'); end if;
+  if v_balance < v_cost then return jsonb_build_object('ok', false, 'reason', 'insufficient', 'balance', v_balance); end if;
+  update users set gamocoins = gamocoins - v_cost, bonus_spins = bonus_spins + 1 where firebase_uid = p_uid;
+  return jsonb_build_object('ok', true, 'balance', v_balance - v_cost);
+end;
+$$;
+
+-- MAP FEATURE: Bonus-Spin einlösen — GLEICHE Jackpot-Logik wie spin_slot_machine,
+-- aber verbraucht bonus_spins statt den 24h last_slot_spin-Cooldown zu prüfen.
+create or replace function use_bonus_spin(p_uid text)
+returns jsonb language plpgsql as $$
+declare
+  v_bonus int;
+  v_is_jackpot boolean;
+  v_coins_won bigint := 0;
+begin
+  if p_uid != auth.jwt()->>'sub' then
+    return jsonb_build_object('spun', false, 'reason', 'unauthorized');
+  end if;
+  select bonus_spins into v_bonus from users where firebase_uid = p_uid for update;
+  if v_bonus is null or v_bonus <= 0 then
+    return jsonb_build_object('spun', false, 'reason', 'no_bonus_spins');
+  end if;
+  v_is_jackpot := random() < 0.01;
+  if v_is_jackpot then
+    update users set bonus_spins = bonus_spins - 1, free_delivery_voucher = true where firebase_uid = p_uid;
+    return jsonb_build_object('spun', true, 'is_jackpot', true, 'coins_won', 0, 'voucher_won', true);
+  else
+    v_coins_won := least(50 + floor(random()*450)::bigint, 10000);
+    update users set bonus_spins = bonus_spins - 1, gamocoins = gamocoins + v_coins_won where firebase_uid = p_uid;
+    return jsonb_build_object('spun', true, 'is_jackpot', false, 'coins_won', v_coins_won, 'voucher_won', false);
+  end if;
 end;
 $$;
 
