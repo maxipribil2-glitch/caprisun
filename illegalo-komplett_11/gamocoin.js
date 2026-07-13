@@ -38,25 +38,19 @@ export async function ensureSupabaseUserExists(uid) {
     if (!fsSnap.exists()) return; // auch in Firestore nix da, kann nix migriert werden
 
     const fsData = fsSnap.data();
-    const { error } = await supabase.from("users").insert({
-      firebase_uid: uid,
-      username: fsData.username || "spieler",
-      gamocoins: fsData.gamocoins ?? STARTING_COINS,
+    // MAP FIX (Verbesserungsvorschlag Punkt 1): läuft jetzt über die
+    // migrate_legacy_user-RPC statt direktem Insert — die deckelt den
+    // übernommenen Coin-Stand serverseitig auf ein plausibles Maximum, falls
+    // wer seinen Firestore-Wert vorher über die Browser-Konsole manipuliert hat.
+    const { data, error } = await supabase.rpc("migrate_legacy_user", {
+      p_uid: uid,
+      p_username: fsData.username || "spieler",
+      p_coins: fsData.gamocoins ?? STARTING_COINS
     });
     if (error) {
-      // Häufigster Fall: username schon von nem anderen Account belegt (z.B.
-      // Duplikat-Accounts mit gleichem Anzeigenamen) -> mit Suffix nochmal versuchen
-      if (error.code === "23505") {
-        await supabase.from("users").insert({
-          firebase_uid: uid,
-          username: (fsData.username || "spieler") + "_" + uid.slice(0, 5),
-          gamocoins: fsData.gamocoins ?? STARTING_COINS,
-        });
-      } else {
-        console.error("[gamocoin] ensureSupabaseUserExists insert failed:", error);
-      }
-    } else {
-      console.log("[gamocoin] Account nachträglich in Supabase angelegt:", uid, fsData.username);
+      console.error("[gamocoin] ensureSupabaseUserExists migration failed:", error);
+    } else if (data?.ok) {
+      console.log("[gamocoin] Account nachträglich in Supabase angelegt:", uid, fsData.username, "-> Coins:", data.coins);
     }
   } catch (e) { console.error("[gamocoin] ensureSupabaseUserExists failed:", e); }
 }

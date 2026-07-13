@@ -95,45 +95,62 @@ async function loadRoulFavorites() {
 // MAP FEATURE (Punkt 5): standardmäßig nur Freunde (aus der Favoriten-Liste)
 // zum Einladen vorschlagen statt JEDEM online Spieler — bei größer werdender
 // Gruppe cleaner. "Alle anzeigen"-Toggle bleibt für den Fall dass mans doch braucht.
+let lastOnlineStatusData = {};
+
+function renderOnlineInviteList() {
+  const listEl = document.getElementById("online-invite-list");
+  if (!listEl) return;
+  const data = lastOnlineStatusData;
+  let others = Object.entries(data).filter(([uid, v]) => uid !== myUid && v.state === "online");
+  const hasFavoritesOnline = others.some(([uid]) => roulFavorites.has(uid));
+  if (!roulShowAllOnline && hasFavoritesOnline) {
+    others = others.filter(([uid]) => roulFavorites.has(uid));
+  }
+  if (!others.length) {
+    const noFavoritesSet = roulFavorites.size === 0;
+    const emptyText = (hasFavoritesOnline || roulShowAllOnline) ? "Niemand sonst online grad."
+      : noFavoritesSet ? "Noch keine Freunde markiert (geht in der Lobby beim Spieler-Namen) — "
+      : "Keine Freunde grad online — ";
+    listEl.innerHTML = `<li class="empty">${emptyText}${!roulShowAllOnline && !hasFavoritesOnline ? '<a href="#" id="rou-showall-link" style="color:var(--in);">alle online Spieler anzeigen</a>' : ""}</li>`;
+    const link = document.getElementById("rou-showall-link");
+    // MAP FIX: Toggle rendert jetzt nur noch NEU (nutzt gecachte Daten) statt
+    // nochmal onValue() aufzurufen — vorher hat JEDER Klick + JEDES erneute
+    // Rendern nen KOMPLETT NEUEN Realtime-Listener aufgemacht, ohne den alten
+    // abzumelden. Die haben sich unbegrenzt gestapelt und irgendwann den Tab
+    // zum Abstürzen gebracht (Memory-Leak über viele Status-Updates).
+    if (link) link.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; renderOnlineInviteList(); });
+    return;
+  }
+  listEl.innerHTML = "";
+  others.sort((a,b) => (roulFavorites.has(b[0])?1:0) - (roulFavorites.has(a[0])?1:0));
+  others.forEach(([uid, v]) => {
+    const isFav = roulFavorites.has(uid);
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${isFav?"⭐":"🟢"} ${v.username || "Unbekannt"}</span><button class="ghost roulette-invite-btn" data-uid="${uid}" data-name="${v.username||"Unbekannt"}" style="padding:4px 10px;font-size:11px;">Einladen 📨</button>`;
+    listEl.appendChild(li);
+  });
+  if (!roulShowAllOnline) {
+    const toggleLi = document.createElement("li");
+    toggleLi.className = "empty";
+    toggleLi.innerHTML = `<a href="#" id="rou-showall-link2" style="color:var(--in);">+ alle online Spieler anzeigen</a>`;
+    listEl.appendChild(toggleLi);
+    document.getElementById("rou-showall-link2")?.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; renderOnlineInviteList(); });
+  }
+  listEl.querySelectorAll(".roulette-invite-btn").forEach(btn => {
+    btn.addEventListener("click", () => sendTableInvite(btn.dataset.uid, btn.dataset.name));
+  });
+}
+
+let onlineStatusListenerAttached = false;
 function listenOnlinePlayersForInvite() {
   const listEl = document.getElementById("online-invite-list");
   if (!listEl) return;
+  if (onlineStatusListenerAttached) { renderOnlineInviteList(); return; } // schon aktiv, nur neu rendern
+  onlineStatusListenerAttached = true;
   const statusRef = ref(rtdb, "status");
   onValue(statusRef, (snap) => {
-    const data = snap.val() || {};
-    let others = Object.entries(data).filter(([uid, v]) => uid !== myUid && v.state === "online");
-    const hasFavoritesOnline = others.some(([uid]) => roulFavorites.has(uid));
-    if (!roulShowAllOnline && hasFavoritesOnline) {
-      others = others.filter(([uid]) => roulFavorites.has(uid));
-    }
-    if (!others.length) {
-      const noFavoritesSet = roulFavorites.size === 0;
-      const emptyText = (hasFavoritesOnline || roulShowAllOnline) ? "Niemand sonst online grad."
-        : noFavoritesSet ? "Noch keine Freunde markiert (geht in der Lobby beim Spieler-Namen) — "
-        : "Keine Freunde grad online — ";
-      listEl.innerHTML = `<li class="empty">${emptyText}${!roulShowAllOnline && !hasFavoritesOnline ? '<a href="#" id="rou-showall-link" style="color:var(--in);">alle online Spieler anzeigen</a>' : ""}</li>`;
-      const link = document.getElementById("rou-showall-link");
-      if (link) link.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; listenOnlinePlayersForInvite(); });
-      return;
-    }
-    listEl.innerHTML = "";
-    others.sort((a,b) => (roulFavorites.has(b[0])?1:0) - (roulFavorites.has(a[0])?1:0));
-    others.forEach(([uid, v]) => {
-      const isFav = roulFavorites.has(uid);
-      const li = document.createElement("li");
-      li.innerHTML = `<span>${isFav?"⭐":"🟢"} ${v.username || "Unbekannt"}</span><button class="ghost roulette-invite-btn" data-uid="${uid}" data-name="${v.username||"Unbekannt"}" style="padding:4px 10px;font-size:11px;">Einladen 📨</button>`;
-      listEl.appendChild(li);
-    });
-    if (!roulShowAllOnline) {
-      const toggleLi = document.createElement("li");
-      toggleLi.className = "empty";
-      toggleLi.innerHTML = `<a href="#" id="rou-showall-link2" style="color:var(--in);">+ alle online Spieler anzeigen</a>`;
-      listEl.appendChild(toggleLi);
-      document.getElementById("rou-showall-link2")?.addEventListener("click", (e) => { e.preventDefault(); roulShowAllOnline = true; listenOnlinePlayersForInvite(); });
-    }
-    listEl.querySelectorAll(".roulette-invite-btn").forEach(btn => {
-      btn.addEventListener("click", () => sendTableInvite(btn.dataset.uid, btn.dataset.name));
-    });
+    lastOnlineStatusData = snap.val() || {};
+    renderOnlineInviteList();
   });
 }
 
@@ -206,36 +223,7 @@ function buildChips() {
 // ── Betting Table ──
 function buildTable() {
   const tbl = document.getElementById("bet-table");
-  const rows = [];
   const hasZZ = variant === "us";
-
-  // Row 0: zeros + dozen/column labels
-  rows.push(`<tr>
-    <td colspan="3" class="zer-num num-cell" style="font-size:11px;width:84px;" data-bet="straight:0" onclick="addBet('straight',[0],'0',this)">0</td>
-    ${hasZZ?`<td colspan="1" class="zer-num num-cell" data-bet="straight:37" onclick="addBet('straight',[37],'00',this)" style="width:28px;">00</td>`:""}
-    <td colspan="4" class="wide-cell" onclick="addBet('dozen',[...r(1,12)],'1st Dozen',this)" style="cursor:pointer;">1st 12</td>
-    <td colspan="4" class="wide-cell" onclick="addBet('dozen',[...r(13,24)],'2nd Dozen',this)" style="cursor:pointer;">2nd 12</td>
-    <td colspan="4" class="wide-cell" onclick="addBet('dozen',[...r(25,36)],'3rd Dozen',this)" style="cursor:pointer;">3rd 12</td>
-  </tr>`);
-
-  // Number grid — 3 rows, 12 cols (1-36 in column order)
-  // col layout: 1,4,7,10,13,16,19,22,25,28,31,34 → top row
-  for (let row=1; row>=1 && row<=3; row--) {
-    const nums = [];
-    for (let col=0; col<12; col++) { nums.push(col*3 + row); }
-    const cells = nums.map(n => {
-      const cl = RED_NUMS.has(n)?"red-num":"blk-num";
-      return `<td class="${cl} num-cell" data-bet="straight:${n}" onclick="addBet('straight',[${n}],'${n}',this)">${n}</td>`;
-    }).join("");
-    rows.push(`<tr>${row===3?`<td rowspan="3" class="wide-cell" style="width:16px;writing-mode:vertical-rl;font-size:6px;" onclick="addBet('column',[...r(${row},36,3)],'Col ${row}',this)">COL</td>`:""}${cells}</tr>`);
-    if (row===1) row=4; // only do rows 1-3
-  }
-  rows.splice(1,0, buildNumRow(1));
-  rows.splice(2,0, buildNumRow(2));
-  rows.splice(3,0, buildNumRow(3));
-  rows.splice(1,3); // replace those
-
-  // Re-build properly
   const allRows = buildProperGrid(hasZZ);
   tbl.innerHTML = allRows;
 }

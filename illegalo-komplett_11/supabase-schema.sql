@@ -359,6 +359,32 @@ begin
 end;
 $$;
 
+-- MAP FEATURE (Verbesserungsvorschlag Punkt 1): Legacy-Account-Migration mit
+-- serverseitiger Deckelung — die Auto-Heal-Migration (ensureSupabaseUserExists)
+-- läuft clientseitig und liest den zu migrierenden Coin-Stand aus Firestore.
+-- Ohne Deckelung könnte wer über die Browser-Konsole seinen Firestore-Wert vor
+-- der Migration manipulieren und sich einen unrealistischen Startwert
+-- erschleichen. Diese Function deckelt auf ein plausibles Maximum.
+create or replace function migrate_legacy_user(p_uid text, p_username text, p_coins bigint)
+returns jsonb language plpgsql as $$
+declare
+  v_capped_coins bigint := least(greatest(p_coins, 0), 50000);
+begin
+  if p_uid != auth.jwt()->>'sub' then
+    return jsonb_build_object('ok', false, 'reason', 'unauthorized');
+  end if;
+  insert into users (firebase_uid, username, gamocoins)
+  values (p_uid, p_username, v_capped_coins)
+  on conflict (firebase_uid) do nothing;
+  return jsonb_build_object('ok', true, 'coins', v_capped_coins);
+exception when unique_violation then
+  insert into users (firebase_uid, username, gamocoins)
+  values (p_uid, p_username || '_' || substr(p_uid, 1, 5), v_capped_coins)
+  on conflict (firebase_uid) do nothing;
+  return jsonb_build_object('ok', true, 'coins', v_capped_coins, 'username_adjusted', true);
+end;
+$$;
+
 alter table users enable row level security;
 alter table rooms enable row level security;
 alter table scores enable row level security;

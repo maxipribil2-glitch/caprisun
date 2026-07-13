@@ -924,7 +924,13 @@ async function updateCoinMgmtPreview() {
 
 document.getElementById("coin-mgmt-user")?.addEventListener("change", updateCoinMgmtPreview);
 
+let coinMgmtSubmitInFlight = false;
 document.getElementById("coin-mgmt-submit-btn")?.addEventListener("click", async () => {
+  // MAP FIX (Verbesserungsvorschlag Punkt 4): schneller Doppelklick konnte
+  // theoretisch 2 Coin-Gutschriften auslösen bevor die erste durchgelaufen is.
+  if (coinMgmtSubmitInFlight) return;
+  coinMgmtSubmitInFlight = true;
+  try {
   const selectEl = document.getElementById("coin-mgmt-user");
   const amountEl = document.getElementById("coin-mgmt-amount");
   const reasonEl = document.getElementById("coin-mgmt-reason");
@@ -958,6 +964,9 @@ document.getElementById("coin-mgmt-submit-btn")?.addEventListener("click", async
   } else {
     statusEl.textContent = "❌ Fehler beim Gutschreiben.";
     showToast("Coin-Gutschrift fehlgeschlagen.", true);
+  }
+  } finally {
+    coinMgmtSubmitInFlight = false;
   }
 });
 

@@ -66,8 +66,20 @@ function animateCoinsTo(target, el) {
   animFrame = requestAnimationFrame(step);
 }
 
+let activeChannel = null;
+
 onAuthStateChanged(auth, async (user) => {
+  // MAP FIX (Verbesserungsvorschlag Punkt 2): vorher wurde bei jedem Login ein
+  // neuer Realtime-Channel erstellt, aber NIE sauber abgemeldet (weder beim
+  // Logout noch bei nem erneuten Login-Event) — über viele Sessions sammeln
+  // sich so unnötig viele offene WebSocket-Verbindungen an. Jetzt wird der
+  // vorherige Channel IMMER zuerst geschlossen, bevor ggf. ein neuer aufgemacht wird.
+  if (activeChannel) {
+    supabase.removeChannel(activeChannel);
+    activeChannel = null;
+  }
   if (!user) return;
+
   const el = ensureBadge();
   el.textContent = "💰 ...";
 
@@ -84,11 +96,17 @@ onAuthStateChanged(auth, async (user) => {
   console.log("[coinBadge] fetched for uid", user.uid, "-> ", initial);
   if (initial) animateCoinsTo(initial.gamocoins ?? 0, el);
 
-  supabase
+  activeChannel = supabase
     .channel(`coin-badge-${user.uid}`)
     .on("postgres_changes",
       { event: "UPDATE", schema: "public", table: "users", filter: `firebase_uid=eq.${user.uid}` },
       (payload) => { animateCoinsTo(payload.new.gamocoins ?? 0, el); }
     )
     .subscribe();
+});
+
+// MAP FIX: Channel auch beim Verlassen der Seite selbst sauber abmelden
+// (Tab schließen, Navigation weg) statt nur beim Auth-State-Wechsel.
+window.addEventListener("beforeunload", () => {
+  if (activeChannel) supabase.removeChannel(activeChannel);
 });
