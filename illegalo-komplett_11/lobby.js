@@ -1,7 +1,7 @@
 // MAP — lobby logic: who's online (Realtime Database presence, instant onDisconnect) + invites (Firestore)
 import { app } from "./firebase-config.js";
 import { renderShopAd } from "./ads.js";
-import { getBalance, formatCoins, claimDailyBonus, claimChallengeReward } from "./gamocoin.js";
+import { getBalance, formatCoins, claimDailyBonus, claimChallengeReward, ensureSupabaseUserExists } from "./gamocoin.js";
 import { toggleLang, applyLang } from "./i18n.js";
 window._toggleLang = toggleLang;
 applyLang();
@@ -544,7 +544,7 @@ let redirected = false;
 const declinedSeen = new Set();
 let favorites = new Set(); // UIDs der Lieblingsgegner, persistiert in Firestore
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "gc-index.html";
     return;
@@ -554,6 +554,7 @@ onAuthStateChanged(auth, (user) => {
   whoEl.innerHTML = `eingeloggt als <span>${myName}</span>`;
   // MaxiCoins balance
   console.log("[lobby] eingeloggt mit UID:", myUid);
+  await ensureSupabaseUserExists(myUid); // MAP FEATURE: Auto-Heal für alte Accounts
   getBalance(myUid).then(coins => {
     console.log("[lobby] getBalance() ergab:", coins, "für UID:", myUid);
     if (!sessionStorage.getItem("gc_session_start_balance")) {

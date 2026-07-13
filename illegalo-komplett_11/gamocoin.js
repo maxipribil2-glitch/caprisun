@@ -6,6 +6,10 @@
 // Postgres RPC-Functions (siehe supabase-schema.sql) statt Firestore-Transactions,
 // weil supabase-js kein client-seitiges Transaction-API wie Firestore hat.
 import { supabase } from "./supabase-config.js";
+import { app } from "./firebase-config.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const fsDb = getFirestore(app);
 
 export const STARTING_COINS = 1000;
 export const DAILY_BONUS    = 1000;
@@ -16,6 +20,46 @@ const SOLO_GAMES = new Set([
   "wham_score","bubbleshooter_score","stroop_score","balloonpop_score","flappy_score",
   "2048_score","sudoku_score","memory_score","minesweeper_score","wordle_score","typing_score","pixelart_score"
 ]);
+
+// MAP FEATURE: Auto-Heal-Migration — statt manuell UIDs zu raten/nachzutragen,
+// checkt diese Funktion bei JEDEM Login ob der Account schon in Supabase
+// existiert. Falls nich (alte Accounts von VOR dem Supabase-Umzug), wird er
+// automatisch mit seinen ECHTEN Firestore-Daten (Username + echter Coin-Stand,
+// nich einfach auf 1000 zurückgesetzt) nachgetragen. Läuft so für JEDEN
+// bestehenden Account beim nächsten Einloggen, ohne dass irgendwer UIDs
+// manuell kennen/eintragen muss.
+export async function ensureSupabaseUserExists(uid) {
+  try {
+    const { data: existing } = await supabase.from("users").select("firebase_uid").eq("firebase_uid", uid).maybeSingle();
+    if (existing) return; // schon da, nix zu tun
+
+    // Nicht in Supabase -> Firestore-Daten holen und rüberkopieren
+    const fsSnap = await getDoc(doc(fsDb, "users", uid));
+    if (!fsSnap.exists()) return; // auch in Firestore nix da, kann nix migriert werden
+
+    const fsData = fsSnap.data();
+    const { error } = await supabase.from("users").insert({
+      firebase_uid: uid,
+      username: fsData.username || "spieler",
+      gamocoins: fsData.gamocoins ?? STARTING_COINS,
+    });
+    if (error) {
+      // Häufigster Fall: username schon von nem anderen Account belegt (z.B.
+      // Duplikat-Accounts mit gleichem Anzeigenamen) -> mit Suffix nochmal versuchen
+      if (error.code === "23505") {
+        await supabase.from("users").insert({
+          firebase_uid: uid,
+          username: (fsData.username || "spieler") + "_" + uid.slice(0, 5),
+          gamocoins: fsData.gamocoins ?? STARTING_COINS,
+        });
+      } else {
+        console.error("[gamocoin] ensureSupabaseUserExists insert failed:", error);
+      }
+    } else {
+      console.log("[gamocoin] Account nachträglich in Supabase angelegt:", uid, fsData.username);
+    }
+  } catch (e) { console.error("[gamocoin] ensureSupabaseUserExists failed:", e); }
+}
 
 // ── Balance abrufen ──
 export async function getBalance(uid) {

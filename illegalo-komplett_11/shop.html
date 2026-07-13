@@ -313,7 +313,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
                                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, doc, runTransaction, where, getDocs, updateDoc, getDoc }
                                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { formatCoins } from "./gamocoin.js";
+import { formatCoins, ensureSupabaseUserExists } from "./gamocoin.js";
 import { toggleLang, applyLang } from "./i18n.js";
 window._toggleLang = toggleLang;
 applyLang();
@@ -395,6 +395,7 @@ onAuthStateChanged(auth, async (user) => {
     // Name-Feld automatisch vorausfüllen, falls noch leer
     const nameInput = document.getElementById("c-name");
     if (nameInput && !nameInput.value) nameInput.value = myUsername;
+    await ensureSupabaseUserExists(myUid); // MAP FEATURE: Auto-Heal für alte Accounts
     checkFreeDeliveryVoucher();
     // MAP FEATURE (Punkt 2): Coin-Kontostand im Header anzeigen, live via onSnapshot
     onSnapshot(doc(db, "users", myUid), (snap) => {
