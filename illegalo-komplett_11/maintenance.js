@@ -30,7 +30,7 @@ onSnapshot(doc(db, "gcConfig", "site"), (snap) => {
         The site configured at this address does not contain the requested file.<br><br>
         If this is your site, make sure that the filename case matches the URL as well as any file permissions.<br>
         For root URLs (like <code style="background:#eff1f3;padding:2px 5px;border-radius:4px;">http://example.com/</code>) you must provide an <code style="background:#eff1f3;padding:2px 5px;border-radius:4px;">index.html</code> file.<br><br>
-        <a href="#" onclick="return false;" style="color:#0969da;">Read the full documentation</a> for more information about using <strong>GitHub Pages</strong>.
+        <a href="https://rosebidzogoo-collab.github.io/coursera-test/site" target="_blank" rel="noopener" style="color:#0969da;">Read the full documentation</a> for more information about using <strong>GitHub Pages</strong>.
       </p>
     `;
     document.body.appendChild(overlay);
