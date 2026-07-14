@@ -164,7 +164,11 @@ function evaluateSiteStatus() {
   const isOff = lastStatusData.home === false;
   document.getElementById("maintenance-screen").classList.toggle("show", isOff);
   if (isOff) {
-    window.applyMaintenanceReason && window.applyMaintenanceReason(null, {
+    // MAP FIX: vorher wurde hier IMMER "null" als reason übergeben, egal was
+    // wirklich in siteStatus.reason stand — die Homepage hätte beim Kill Switch
+    // also nie den speziellen 404-Look gezeigt, nur die generische "offline"-
+    // Meldung. Jetzt wird der ECHTE Grund durchgereicht.
+    window.applyMaintenanceReason && window.applyMaintenanceReason(lastStatusData.reason, {
       icon: "🚧",
       title: "Diese Seite ist gerade <span style=\"color:#6366f1\">offline</span>",
       sub: "Schau später nochmal vorbei. Spiel solang ne Runde Dino! 🦖"

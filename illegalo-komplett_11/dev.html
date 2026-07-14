@@ -1128,7 +1128,7 @@ window.activateKillSwitch = async function() {
   // gekillt is. Jetzt: beide einzeln versucht, klare Rückmeldung was wirklich lief.
   let siteOk = false, gcOk = false;
   try {
-    await setDoc(statusDocRef, { shop: false, admin: false, lieferant: false, reason: "killswitch", killswitchAt: new Date().toISOString() }, { merge: true });
+    await setDoc(statusDocRef, { home: false, shop: false, admin: false, lieferant: false, reason: "killswitch", killswitchAt: new Date().toISOString() }, { merge: true });
     siteOk = true;
   } catch(e) {}
   try {
@@ -1165,7 +1165,7 @@ window.setEmergency = async function(reason) {
 
 window.restoreAll = async function() {
   try {
-    await setDoc(statusDocRef, { shop: true, admin: true, lieferant: true, reason: null, killswitchAt: null }, { merge: true });
+    await setDoc(statusDocRef, { home: true, shop: true, admin: true, lieferant: true, reason: null, killswitchAt: null }, { merge: true });
     // MAP: reaktiviert nebenbei auch das Gamecenter falls der Kill Switch aktiv war —
     // schadet nix falls er's nicht war (setzt einfach maintenance:false, was eh der
     // Normalzustand ist).
