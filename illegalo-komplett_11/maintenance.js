@@ -22,7 +22,7 @@ onSnapshot(doc(db, "gcConfig", "site"), (snap) => {
     // einfach nix" wirken. Inline-Styles hier weil dieses Overlay komplett
     // dynamisch per JS erzeugt wird (kein fixes HTML-Element wie bei den
     // anderen Seiten), CSS-Klassen aus style.css würden hier nicht automatisch greifen.
-    overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:#f6f8fa;color:#1f2328;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:#ffffff;color:#1f2328;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;";
     overlay.innerHTML = `
       <div style="font-size:4rem;font-weight:300;margin-bottom:1rem;">404</div>
       <div style="font-size:1.1rem;font-weight:700;margin-bottom:1.2rem;">File not found</div>

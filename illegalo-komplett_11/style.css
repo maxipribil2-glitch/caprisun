@@ -517,7 +517,7 @@ body.gc-light .page-title { text-shadow: 0 0 4px var(--bl); }
    Screen selbst, der Rest der Seite bleibt unberührt (is eh unsichtbar solang
    der Screen drüber liegt). */
 #maintenance-screen.killswitch-404-look {
-  background: #f6f8fa !important;
+  background: #ffffff !important;
   color: #1f2328 !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important;
 }
