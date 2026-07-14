@@ -358,6 +358,12 @@ button,input{font-family:'Inter',sans-serif;}
           <button id="spin-price-submit-btn" style="margin-top:4px;">Preis speichern ✅</button>
         </div>
 
+        <div class="storage-hdr"><h3>🧹 Log-Cleanup (Supabase)</h3><span class="storage-count" id="log-cleanup-status"></span></div>
+        <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
+          <div style="font-size:11px;color:var(--sub,#888);">Löscht audit_log/voucher_log/error_log-Einträge älter als 90 Tage (Supabase). Läuft nur manuell, kein Cron eingerichtet.</div>
+          <button id="log-cleanup-btn">Alte Logs jetzt aufräumen 🧹</button>
+        </div>
+
         <div class="storage-hdr"><h3>🚫 blockedUsers</h3><span class="storage-count" id="blocked-count">0 docs</span></div>
         <div class="storage-box"><pre id="blocked-json">Lädt…</pre></div>
       </div>
@@ -1003,6 +1009,28 @@ document.getElementById("spin-price-submit-btn")?.addEventListener("click", asyn
     statusEl.textContent = "❌ Fehler beim Speichern.";
     showToast("Preis konnte nicht gespeichert werden — bist du als Staff eingeloggt?", true);
     console.error("[dev] saveSpinPrice failed:", e);
+  }
+});
+
+// MAP FEATURE (Verbesserungsvorschlag Punkt 4): Log-Cleanup manuell auslösen
+document.getElementById("log-cleanup-btn")?.addEventListener("click", async () => {
+  const statusEl = document.getElementById("log-cleanup-status");
+  const ok = await askConfirm("🧹", "Alte Logs aufräumen?",
+    "Löscht audit_log/voucher_log/error_log-Einträge älter als 90 Tage aus Supabase. Kann nicht rückgängig gemacht werden!",
+    "warn", "Ja, aufräumen");
+  if (!ok) return;
+  try {
+    const { data, error } = await supabase.rpc("cleanup_old_logs");
+    if (error) throw error;
+    if (data.ok) {
+      statusEl.textContent = `✅ ${data.audit_deleted + data.voucher_deleted + data.error_deleted} Einträge gelöscht`;
+      showToast(`🧹 Aufgeräumt: ${data.audit_deleted} audit, ${data.voucher_deleted} voucher, ${data.error_deleted} error`);
+    } else {
+      statusEl.textContent = "❌ " + (data.reason || "Fehlgeschlagen");
+    }
+  } catch (e) {
+    statusEl.textContent = "❌ Fehler beim Aufräumen.";
+    console.error("[dev] cleanupOldLogs failed:", e);
   }
 });
 

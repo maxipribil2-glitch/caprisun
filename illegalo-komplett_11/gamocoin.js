@@ -29,13 +29,19 @@ const SOLO_GAMES = new Set([
 // bestehenden Account beim nächsten Einloggen, ohne dass irgendwer UIDs
 // manuell kennen/eintragen muss.
 export async function ensureSupabaseUserExists(uid) {
+  // MAP FIX (Verbesserungsvorschlag Punkt 2): lief vorher bei JEDEM Login/
+  // Seitenaufruf erneut, obwohl's nach der ersten erfolgreichen Migration nie
+  // wieder was zu tun gibt. Läuft jetzt nur noch 1x pro Browser-Session
+  // (sessionStorage), spart unnötige DB-Roundtrips bei jedem Page-Load.
+  const cacheKey = "gc_supabase_user_checked_" + uid;
+  if (sessionStorage.getItem(cacheKey) === "1") return;
   try {
     const { data: existing } = await supabase.from("users").select("firebase_uid").eq("firebase_uid", uid).maybeSingle();
-    if (existing) return; // schon da, nix zu tun
+    if (existing) { sessionStorage.setItem(cacheKey, "1"); return; } // schon da, nix zu tun
 
     // Nicht in Supabase -> Firestore-Daten holen und rüberkopieren
     const fsSnap = await getDoc(doc(fsDb, "users", uid));
-    if (!fsSnap.exists()) return; // auch in Firestore nix da, kann nix migriert werden
+    if (!fsSnap.exists()) { sessionStorage.setItem(cacheKey, "1"); return; } // auch in Firestore nix da
 
     const fsData = fsSnap.data();
     // MAP FIX (Verbesserungsvorschlag Punkt 1): läuft jetzt über die
@@ -52,6 +58,7 @@ export async function ensureSupabaseUserExists(uid) {
     } else if (data?.ok) {
       console.log("[gamocoin] Account nachträglich in Supabase angelegt:", uid, fsData.username, "-> Coins:", data.coins);
     }
+    sessionStorage.setItem(cacheKey, "1");
   } catch (e) { console.error("[gamocoin] ensureSupabaseUserExists failed:", e); }
 }
 

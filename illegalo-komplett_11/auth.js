@@ -52,18 +52,39 @@ showLoginBtn.addEventListener("click", () => {
   showError("");
 });
 
+// MAP FEATURE (Verbesserungsvorschlag Punkt 3): Rate-Limiting fürs Gamecenter-
+// Login — gleiches Pattern wie im Dev Panel (dort schon vorhanden), hier bisher
+// gefehlt. Verhindert automatisiertes Passwort-Durchprobieren.
+const MAX_LOGIN_ATTEMPTS = 5, LOGIN_LOCKOUT_MS = 30*1000;
+let loginAttempts = 0, loginLockedUntil = 0;
+
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   showError("");
+
+  const now = Date.now();
+  if (now < loginLockedUntil) {
+    const secsLeft = Math.ceil((loginLockedUntil - now) / 1000);
+    showError(`Zu viele Fehlversuche — warte noch ${secsLeft}s.`);
+    return;
+  }
+
   const username = document.getElementById("login-username").value.trim();
   const password = document.getElementById("login-password").value;
   try {
     await signInWithEmailAndPassword(auth, usernameToEmail(username), password);
+    loginAttempts = 0; // erfolgreich -> Zähler zurücksetzen
     sessionStorage.setItem("gc_just_logged_in", "1"); // MAP: markiert frischen Login-Vorgang
     sessionStorage.setItem("gc_login_username", username); // MAP FIX: username für Intro-Redirect sichern (war vorher außerhalb des Scopes von onAuthStateChanged nicht erreichbar -> ReferenceError bei jedem Login)
     // redirect happens in onAuthStateChanged below
   } catch (err) {
-    showError(friendlyError(err));
+    loginAttempts++;
+    if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+      loginLockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+      showError(`Zu viele Fehlversuche — warte ${LOGIN_LOCKOUT_MS/1000}s.`);
+    } else {
+      showError(friendlyError(err) + ` (${loginAttempts}/${MAX_LOGIN_ATTEMPTS} Versuche)`);
+    }
   }
 });
 
