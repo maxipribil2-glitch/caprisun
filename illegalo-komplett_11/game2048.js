@@ -30,10 +30,10 @@ const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart-btn");
 const leaveBtn = document.getElementById("leave-btn");
-// MAP FIX (Wiederholungsbug, gleich wie flappy.js/minesweeper.js): lbEl war nur
-// INNERHALB von loadLeaderboard() deklariert — submitScore()'s catch-Block referenzierte
-// lbEl obwohl es dort gar nicht existierte -> ReferenceError sobald awardGameReward()
-// oder loadLeaderboard() failte.
+// MAP FIX (Wiederholungsbug, gleicher wie flappy.js): lbEl war nur INNERHALB von
+// loadLeaderboard() deklariert — submitScore()'s catch-Block referenzierte lbEl obwohl
+// es dort nicht existierte -> ReferenceError sobald awardGameReward() failte. Jetzt
+// einmal auf Modul-Ebene geholt.
 const lbEl = document.getElementById("leaderboard");
 
 renderShopAd("shop-ad");

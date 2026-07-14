@@ -127,16 +127,11 @@ async function finishGame() {
   statusEl.textContent = `🎉 Gelöst in ${seconds}s (${DIFFICULTIES[difficulty].label})!`;
   restartBtn.classList.remove("hidden");
   sfx.win ? sfx.win() : null;
-  // MAP FIX (Wiederholungsbug, gleich wie minesweeper.js/memory.js): `base` stand
-  // vorher als `const` INNERHALB des ersten try-Blocks — im zweiten try-Block
-  // (awardGameReward) war es dadurch außerhalb seines Scopes und JEDER Playthrough
-  // warf hier ein ReferenceError, bevor Coins vergeben werden konnten.
-  let base = 20;
   try {
     await addDoc(collection(db, "scores"), { uid: myUid, name: myName, game: "sudoku", score: seconds, at: serverTimestamp() });
-    base = Math.max(20, 500 - seconds * 2);
-  } catch (e) { console.error("[sudoku] Score-Submit fehlgeschlagen:", e); }
-  try {
+    const base = Math.max(20, 500 - seconds * 2);
+    } catch (e) { console.error("[sudoku] Score-Submit fehlgeschlagen:", e); }
+    try {
     await awardGameReward(myUid, Math.min(Math.round(base * DIFFICULTIES[difficulty].mult), 500), "sudoku_score");
     sfx.coin ? sfx.coin() : null;
     loadLeaderboard();

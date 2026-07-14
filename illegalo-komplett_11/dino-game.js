@@ -20,7 +20,7 @@ window.applyMaintenanceReason = function(reason, defaults) {
     // MAP FEATURE: Kill-Switch-Reason — bewusst KEIN Dino-Game hier, weil ein
     // "alles ist down"-Notfall was anderes signalisieren soll als der normale
     // "grad geschlossen, spiel solang Dino"-Vibe der anderen Reasons.
-    killswitch:    { icon: "🛑", title: "🛑 Server Down 🛑", sub: "" },
+    killswitch:    { icon: "404", title: "File not found", sub: "The site configured at this address does not contain the requested file.<br><br>If this is your site, make sure that the filename case matches the URL as well as any file permissions.<br>For root URLs (like <code>http://example.com/</code>) you must provide an <code>index.html</code> file.<br><br><a href=\"#\" onclick=\"return false;\" style=\"color:#0969da;\">Read the full documentation</a> for more information about using <strong>GitHub Pages</strong>." },
   };
   const t = REASONS[reason] || defaults;
   const iconEl = document.getElementById("maint-icon");
@@ -29,6 +29,14 @@ window.applyMaintenanceReason = function(reason, defaults) {
   if (iconEl) iconEl.textContent = t.icon;
   if (titleEl) titleEl.innerHTML = t.title;
   if (subEl) subEl.innerHTML = t.sub;
+
+  // MAP FEATURE: Kill Switch sieht jetzt aus wie ne ECHTE GitHub-Pages-404-Seite
+  // (weißer Hintergrund, schwarze Schrift, exakter GitHub-Wortlaut) — soll wie
+  // "hier gibt's einfach nix" wirken statt "wir sind kurz down, komm später
+  // wieder". Wichtig: die URL in der Adressleiste kann NICHT versteckt werden,
+  // das is ne Browser-Sicherheitsfunktion, kein Website-Code kann das.
+  const screenEl = document.getElementById("maintenance-screen");
+  if (screenEl) screenEl.classList.toggle("killswitch-404-look", reason === "killswitch");
 
   // Dino-Canvas verstecken bei Kill Switch, sonst normal sichtbar lassen
   document.querySelectorAll("canvas[id*='dino']").forEach(c => {

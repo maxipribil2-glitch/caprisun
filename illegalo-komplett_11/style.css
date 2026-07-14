@@ -510,3 +510,29 @@ body.gc-light .page-title { text-shadow: 0 0 4px var(--bl); }
   color: var(--mu); font-size: 13px; padding: 5px 9px; cursor: pointer; box-shadow: none;
 }
 .gc-theme-btn:hover { border-color: var(--bl); color: var(--bl); }
+
+/* MAP FEATURE: Kill-Switch-404-Look — sieht aus wie ne echte GitHub-Pages-404-
+   Seite (weißer Hintergrund, System-Font statt Pixel-Font, GitHub-Farben)
+   statt dem normalen dunklen Retro-Theme. Überschreibt NUR den Maintenance-
+   Screen selbst, der Rest der Seite bleibt unberührt (is eh unsichtbar solang
+   der Screen drüber liegt). */
+#maintenance-screen.killswitch-404-look {
+  background: #f6f8fa !important;
+  color: #1f2328 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important;
+}
+#maintenance-screen.killswitch-404-look .maint-icon {
+  font-size: 4rem !important; font-weight: 300 !important; color: #1f2328 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important;
+}
+#maintenance-screen.killswitch-404-look .maint-title {
+  font-size: 1.1rem !important; font-weight: 700 !important; color: #1f2328 !important;
+  margin-bottom: 1.2rem !important;
+}
+#maintenance-screen.killswitch-404-look .maint-sub {
+  color: #59636e !important; font-size: 0.95rem !important; max-width: 480px !important;
+  line-height: 1.6 !important;
+}
+#maintenance-screen.killswitch-404-look .maint-sub code {
+  background: #eff1f3; padding: 2px 5px; border-radius: 4px; font-size: 0.85em;
+}

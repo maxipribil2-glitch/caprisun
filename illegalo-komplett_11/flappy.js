@@ -19,10 +19,10 @@ const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart-btn");
 const leaveBtn = document.getElementById("leave-btn");
-// MAP FIX (Wiederholungsbug, gleich wie game2048.js/minesweeper.js): lbEl war nur
-// INNERHALB von loadLeaderboard() deklariert — gameOver()'s catch-Block referenzierte
-// lbEl obwohl es dort gar nicht existierte -> ReferenceError sobald awardGameReward()
-// oder loadLeaderboard() failte.
+// MAP FIX (Wiederholungsbug): lbEl war nur INNERHALB von loadLeaderboard() deklariert
+// (const, block-scoped) — gameOver()'s catch-Block hat lbEl referenziert obwohl es dort
+// gar nicht existierte -> ReferenceError, sobald awardGameReward() failte. Jetzt einmal
+// auf Modul-Ebene geholt, so wie alle anderen DOM-Refs hier oben.
 const lbEl = document.getElementById("leaderboard");
 
 renderShopAd("shop-ad");

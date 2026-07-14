@@ -376,40 +376,6 @@ exception when unique_violation then
 end;
 $$;
 
--- MAP FIX (fehlende Function, Wiederholungsbug): dev.html ruft cleanup_old_logs() im
--- Log-Cleanup-Panel auf, aber die RPC existierte nirgends im Schema -> jeder Klick auf
--- "Alte Logs jetzt aufräumen" ist mit "function does not exist" fehlgeschlagen. Staff-only
--- (gleiche Prüfung wie admin_add_coins), löscht audit_log/voucher_log/error_log
--- Einträge älter als 90 Tage und meldet die gelöschten Zeilen pro Tabelle zurück.
-create or replace function cleanup_old_logs()
-returns jsonb language plpgsql as $$
-declare
-  v_audit_deleted bigint;
-  v_voucher_deleted bigint;
-  v_error_deleted bigint;
-begin
-  if not is_illegalo_staff() then
-    return jsonb_build_object('ok', false, 'reason', 'unauthorized');
-  end if;
-
-  delete from audit_log where at < now() - interval '90 days';
-  get diagnostics v_audit_deleted = row_count;
-
-  delete from voucher_log where at < now() - interval '90 days';
-  get diagnostics v_voucher_deleted = row_count;
-
-  delete from error_log where at < now() - interval '90 days';
-  get diagnostics v_error_deleted = row_count;
-
-  return jsonb_build_object(
-    'ok', true,
-    'audit_deleted', v_audit_deleted,
-    'voucher_deleted', v_voucher_deleted,
-    'error_deleted', v_error_deleted
-  );
-end;
-$$;
-
 alter table users enable row level security;
 alter table rooms enable row level security;
 alter table scores enable row level security;
