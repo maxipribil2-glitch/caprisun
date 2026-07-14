@@ -10,6 +10,8 @@ import { sfx } from "./sfx.js";
 import { spinSlotMachine, useBonusSpin, buyBonusSpin, getBalance } from "./gamocoin.js";
 import { supabase } from "./supabase-config.js";
 
+import { spriteCanvas } from "./pixelSprites.js";
+
 const auth = getAuth(app);
 const spinBtn = document.getElementById("spin-btn");
 const buySpinBtn = document.getElementById("buy-spin-btn");
@@ -20,10 +22,20 @@ const leaveBtn = document.getElementById("leave-btn");
 const reelEls = [document.getElementById("reel-0"), document.getElementById("reel-1"), document.getElementById("reel-2")];
 renderShopAd("shop-ad");
 
-const SYMBOLS = ["🍒", "🍋", "🔔", "⭐", "💎", "7️⃣"];
+const SYMBOLS = ["cherry", "lemon", "bell", "star", "diamond", "seven"];
+
+function renderReel(el, spriteName) {
+  el.innerHTML = "";
+  el.appendChild(spriteCanvas(spriteName, 48));
+}
 let myUid;
 let bonusSpins = 0;
 let dailyUsedUp = false;
+
+// MAP: initiale Sprites zeigen, damit die Reels beim Laden nicht leer aussehen
+renderReel(reelEls[0], "cherry");
+renderReel(reelEls[1], "lemon");
+renderReel(reelEls[2], "bell");
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = "gc-index.html"; return; }
@@ -57,7 +69,7 @@ function updateBonusInfo() {
 async function playSpinAnimation() {
   reelEls.forEach(el => el.classList.add("spinning"));
   const spinAnim = setInterval(() => {
-    reelEls.forEach(el => { el.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]; });
+    reelEls.forEach(el => { renderReel(el, SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]); });
   }, 80);
   sfx.move ? sfx.move() : null;
   await new Promise(r => setTimeout(r, 1200)); // kurze Spannung aufbauen
@@ -66,7 +78,7 @@ async function playSpinAnimation() {
 }
 
 function renderResult(res) {
-  res.reels.forEach((symbol, i) => { reelEls[i].textContent = symbol; });
+  res.reels.forEach((symbol, i) => { renderReel(reelEls[i], symbol); });
   if (res.isJackpot) {
     statusEl.innerHTML = `🎉🎉🎉 JACKPOT! 🎉🎉🎉<br><strong>Keine Lieferkosten für deine nächste Bestellung!</strong>`;
     sfx.win ? sfx.win() : null;

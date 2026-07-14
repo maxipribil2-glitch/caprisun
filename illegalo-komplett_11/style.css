@@ -376,7 +376,10 @@ canvas {
 }
 .game-hud {
   display: flex; justify-content: space-between; gap: 10px;
-  font-size: 16px; color: var(--mu); margin: 14px 0 8px; flex-wrap: wrap;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: var(--mu); margin: 14px 0 8px; flex-wrap: wrap;
+  line-height: 1.6;
 }
 .game-hud strong { color: var(--am); text-shadow: 0 0 6px rgba(255,214,10,0.4); }
 

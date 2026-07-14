@@ -160,7 +160,7 @@ export async function useBonusSpin(uid) {
     if (!data.spun) return { spun: false, reason: data.reason };
     return {
       spun: true, isJackpot: data.is_jackpot, coinsWon: data.coins_won, voucherWon: data.voucher_won,
-      reels: data.is_jackpot ? ["7️⃣","7️⃣","7️⃣"] : ["🍒","🍋","🔔","⭐","💎"].sort(()=>Math.random()-0.5).slice(0,3)
+      reels: data.is_jackpot ? ["seven","seven","seven"] : ["cherry","lemon","bell","star","diamond"].sort(()=>Math.random()-0.5).slice(0,3)
     };
   } catch(e) { console.error("[slots] useBonusSpin failed:", e); return { spun: false, reason: "error" }; }
 }
@@ -175,7 +175,7 @@ export async function spinSlotMachine(uid) {
       isJackpot: data.is_jackpot,
       coinsWon: data.coins_won,
       voucherWon: data.voucher_won,
-      reels: data.is_jackpot ? ["7️⃣","7️⃣","7️⃣"] : ["🍒","🍋","🔔","⭐","💎"].sort(()=>Math.random()-0.5).slice(0,3)
+      reels: data.is_jackpot ? ["seven","seven","seven"] : ["cherry","lemon","bell","star","diamond"].sort(()=>Math.random()-0.5).slice(0,3)
     };
   } catch(e) {
     console.error("[slots] spinSlotMachine failed:", e);

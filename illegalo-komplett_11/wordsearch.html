@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLEGALO GAMECENTER — Wortsuche</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+(function(){ if(localStorage.getItem("illegalo_gc_theme")==="light") document.body.classList.add("gc-light"); })();
+window.toggleGcTheme = function() {
+  var isLight = document.body.classList.toggle("gc-light");
+  localStorage.setItem("illegalo_gc_theme", isLight?"light":"dark");
+  document.querySelectorAll(".gc-theme-btn").forEach(function(btn){ btn.textContent = isLight ? "🌙" : "☀️"; });
+};
+</script>
+<div class="wrap" style="max-width:420px;">
+  <div class="topbar">
+    <div class="page-title" style="font-size:14px;"><span class="accent-dot" style="background:var(--gr);"></span>Wortsuche</div>
+    <button class="gc-theme-btn" id="gc-theme-btn" onclick="toggleGcTheme()" title="Dark/Light wechseln">☀️</button>
+    <button class="ghost" id="leave-btn">Verlassen</button>
+  </div>
+  <div class="panel center">
+    <div class="game-hud"><span id="timer">⏱️ 90s</span><span id="found-count">Gefunden: 0/8</span></div>
+    <div id="grid-wrap" style="display:flex;justify-content:center;margin:14px 0;">
+      <div id="letter-grid" style="display:grid;grid-template-columns:repeat(10,1fr);gap:2px;user-select:none;touch-action:none;"></div>
+    </div>
+    <div id="word-list" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px;font-size:13px;"></div>
+    <div id="status" style="margin-bottom:8px;">Wörter horizontal, vertikal oder diagonal verstecken sich im Grid — zieh mit der Maus/dem Finger drüber!</div>
+    <button id="restart-btn" class="hidden">Nochmal</button>
+    <div class="hint">10x10-Grid, 8 Wörter versteckt. Zeit läuft — je mehr gefunden desto mehr Coins!</div>
+  </div>
+  <div class="panel"><h2>🏆 Top 5</h2><ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul></div>
+  <div class="shop-ad" id="shop-ad"></div>
+</div>
+<div class="map-sig">MAP</div>
+<div class="version-tag">v1.0
+<style>
+.hidden{display:none;}
+.ws-cell{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:11px;background:#1a1c26;border-radius:2px;cursor:pointer;color:var(--tx);}
+.ws-cell.selected{background:var(--in);color:#1a0a14;}
+.ws-cell.found{background:var(--gr);color:#0a1408;}
+.ws-word{padding:3px 8px;border-radius:10px;background:#1a1c26;border:1px solid var(--bd);}
+.ws-word.done{background:var(--gr);color:#0a1408;text-decoration:line-through;border-color:var(--gr);}
+</style>
+<script type="module" src="maintenance.js"></script>
+<script type="module" src="coinBadge.js"></script>
+<script type="module" src="wordsearch.js"></script>
+</body>
+</html>

@@ -84,17 +84,8 @@ create table if not exists tournaments (
   created_at timestamptz not null default now()
 );
 
--- ── rouletteTables ──
-create table if not exists roulette_tables (
-  id text primary key,
-  phase text not null default 'betting',
-  phase_ends timestamptz,
-  result int,
-  players jsonb not null default '{}',
-  history int[] not null default '{}',
-  variant text not null default 'eu',
-  updated_at timestamptz not null default now()
-);
+-- MAP CLEANUP (Verbesserungsvorschlag Punkt 5): roulette_tables wurde entfernt —
+-- war komplett ungenutzt, Roulette läuft weiterhin über Firestore, nicht Supabase.
 
 -- ── siteStatus (inkl. Kill Switch) ──
 create table if not exists site_status (
@@ -385,9 +376,9 @@ exception when unique_violation then
 end;
 $$;
 
--- MAP FIX (fehlende Function): dev.html ruft cleanup_old_logs() im Log-Cleanup-Panel
--- auf, aber die RPC existierte nirgends im Schema -> jeder Klick auf "Alte Logs
--- jetzt aufräumen" ist mit "function does not exist" fehlgeschlagen. Staff-only
+-- MAP FIX (fehlende Function, Wiederholungsbug): dev.html ruft cleanup_old_logs() im
+-- Log-Cleanup-Panel auf, aber die RPC existierte nirgends im Schema -> jeder Klick auf
+-- "Alte Logs jetzt aufräumen" ist mit "function does not exist" fehlgeschlagen. Staff-only
 -- (gleiche Prüfung wie admin_add_coins), löscht audit_log/voucher_log/error_log
 -- Einträge älter als 90 Tage und meldet die gelöschten Zeilen pro Tabelle zurück.
 create or replace function cleanup_old_logs()
@@ -426,7 +417,6 @@ alter table match_results enable row level security;
 alter table invites enable row level security;
 alter table gc_favorites enable row level security;
 alter table tournaments enable row level security;
-alter table roulette_tables enable row level security;
 alter table site_status enable row level security;
 alter table gc_config enable row level security;
 alter table audit_log enable row level security;
@@ -510,11 +500,6 @@ create policy "create tournament as host" on tournaments for insert
   with check (host = auth.jwt()->>'sub');
 create policy "update tournaments" on tournaments for update using (auth.jwt() is not null);
 
--- roulette_tables: jeder eingeloggte darf lesen/schreiben (Live-Tisch, kein Owner-Konzept)
-create policy "read roulette" on roulette_tables for select using (auth.jwt() is not null);
-create policy "write roulette" on roulette_tables for all
-  using (auth.jwt() is not null) with check (auth.jwt() is not null);
-
 -- site_status: öffentlich lesbar (auch ohne Login, z.B. für Kill-Switch-Anzeige
 -- auf ausgeloggten Seiten), nur Staff darf schreiben
 create policy "read site_status public" on site_status for select using (true);
@@ -554,7 +539,6 @@ create policy "write own presence" on presence for all
 -- Realtime aktivieren für Live-Sync (ersetzt Firestore onSnapshot)
 alter publication supabase_realtime add table rooms;
 alter publication supabase_realtime add table invites;
-alter publication supabase_realtime add table roulette_tables;
 alter publication supabase_realtime add table site_status;
 alter publication supabase_realtime add table gc_config;
 alter publication supabase_realtime add table presence;
