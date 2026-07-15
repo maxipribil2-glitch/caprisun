@@ -34,9 +34,25 @@ onSnapshot(doc(db, "gcConfig", "site"), (snap) => {
       </p>
     `;
     document.body.appendChild(overlay);
+    setFaviconEmpty();
   } else if (!isDown && overlay) {
     overlay.remove();
+    restoreFavicon();
   }
 }, () => {
   // if the read fails (e.g. rules not deployed yet), just don't block the page
 });
+
+// MAP FEATURE (Verbesserungsvorschlag Punkt 3): Favicon-Umschaltung, gleiche
+// Logik wie in dino-game.js — Tab-Icon wird beim Kill Switch auch "leer",
+// statt nur die Seite selbst zu ändern.
+function setFaviconEmpty() {
+  let faviconEl = document.querySelector("link[rel~='icon']");
+  if (!faviconEl) { faviconEl = document.createElement("link"); faviconEl.rel = "icon"; document.head.appendChild(faviconEl); }
+  if (!faviconEl.dataset.original) faviconEl.dataset.original = faviconEl.href || "";
+  faviconEl.href = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+}
+function restoreFavicon() {
+  const faviconEl = document.querySelector("link[rel~='icon']");
+  if (faviconEl && faviconEl.dataset.original !== undefined) faviconEl.href = faviconEl.dataset.original;
+}

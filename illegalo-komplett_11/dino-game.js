@@ -42,6 +42,23 @@ window.applyMaintenanceReason = function(reason, defaults) {
   document.querySelectorAll("canvas[id*='dino']").forEach(c => {
     c.style.display = (reason === "killswitch") ? "none" : "";
   });
+
+  // MAP FEATURE (Verbesserungsvorschlag Punkt 3): Favicon beim Kill Switch auf
+  // "leer" umschalten (1x1 transparentes Pixel) — kleiner Bruch in der 404-
+  // Illusion war sonst dass der Browser-Tab noch das Illegalo-Icon zeigt,
+  // während die Seite selbst wie ne komplett tote GitHub-404-Seite aussieht.
+  let faviconEl = document.querySelector("link[rel~='icon']");
+  if (!faviconEl) {
+    faviconEl = document.createElement("link");
+    faviconEl.rel = "icon";
+    document.head.appendChild(faviconEl);
+  }
+  if (reason === "killswitch") {
+    if (!faviconEl.dataset.original) faviconEl.dataset.original = faviconEl.href || "";
+    faviconEl.href = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  } else if (faviconEl.dataset.original !== undefined) {
+    faviconEl.href = faviconEl.dataset.original;
+  }
 };
 
 window.initDinoGame = function(canvasId, color) {

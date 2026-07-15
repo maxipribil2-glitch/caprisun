@@ -362,7 +362,8 @@ button,input{font-family:'Inter',sans-serif;}
         <div class="storage-hdr"><h3>🚀 Illegalo-Express-Preis</h3><span class="storage-count" id="express-price-status"></span></div>
         <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
           <label for="express-price-input" style="font-size:12px;">Aufpreis für Express (in €)</label>
-          <input id="express-price-input" type="number" step="0.1" min="0" max="20" placeholder="z.B. 1" style="padding:6px;">
+          <input id="express-price-input" type="text" inputmode="decimal" placeholder="z.B. 1 oder 1,50" style="padding:6px;">
+          <div style="font-size:10px;color:var(--sub,#888);">Max. 20€ — serverseitig in den Firestore Rules abgesichert</div>
           <button id="express-price-submit-btn" style="margin-top:4px;">Preis speichern ✅</button>
         </div>
 
@@ -1027,7 +1028,7 @@ async function loadExpressPrice() {
   const statusEl = document.getElementById("express-price-status");
   try {
     const snap = await getDoc(statusDocRef);
-    input.value = snap.exists() ? (snap.data().expressPrice ?? 1) : 1;
+    input.value = String(snap.exists() ? (snap.data().expressPrice ?? 1) : 1).replace(".", ",");
   } catch (e) {
     statusEl.textContent = "Konnte Preis nicht laden.";
     console.error("[dev] loadExpressPrice failed:", e);
@@ -1041,6 +1042,7 @@ async function runHealthCheck() {
   const errEl = document.getElementById("health-errors24h").querySelector("span:last-child");
 
   fsEl.textContent = "Prüfe…"; sbEl.textContent = "Prüfe…"; errEl.textContent = "Prüfe…";
+  let anyFailure = false;
 
   // Firestore: einfacher Read-Test auf ein bekanntes Doc
   try {
@@ -1049,7 +1051,7 @@ async function runHealthCheck() {
     fsEl.textContent = `✅ OK (${Date.now()-start}ms)`;
     fsEl.style.color = "var(--gr, #22c55e)";
   } catch (e) {
-    fsEl.textContent = "❌ Fehler"; fsEl.style.color = "var(--re, #ef4444)";
+    fsEl.textContent = "❌ Fehler"; fsEl.style.color = "var(--re, #ef4444)"; anyFailure = true;
   }
 
   // Supabase: einfacher Read-Test
@@ -1060,7 +1062,7 @@ async function runHealthCheck() {
     sbEl.textContent = `✅ OK (${Date.now()-start}ms)`;
     sbEl.style.color = "var(--gr, #22c55e)";
   } catch (e) {
-    sbEl.textContent = "❌ Fehler"; sbEl.style.color = "var(--re, #ef4444)";
+    sbEl.textContent = "❌ Fehler"; sbEl.style.color = "var(--re, #ef4444)"; anyFailure = true;
   }
 
   // Fehler-Log der letzten 24h zählen
@@ -1072,16 +1074,24 @@ async function runHealthCheck() {
   } catch (e) {
     errEl.textContent = "❌ Fehler";
   }
+
+  // MAP FEATURE (Verbesserungsvorschlag Punkt 6): Warn-Toast falls grad wer
+  // im Dev Panel is UND was ausgefallen is — vorher zeigte das Dashboard den
+  // Status nur an falls man's manuell aufgemacht hat, kein aktiver Hinweis.
+  if (anyFailure) showToast("⚠️ Health Check: Firestore oder Supabase antwortet grad nicht!", true);
 }
 document.getElementById("health-refresh-btn")?.addEventListener("click", runHealthCheck);
 runHealthCheck();
+// MAP FEATURE (Punkt 6): automatisches Re-Checken alle 2 Minuten solang das
+// Dev Panel offen is, statt nur beim manuellen Öffnen/Klicken zu prüfen.
+setInterval(runHealthCheck, 2*60*1000);
 
 loadExpressPrice();
 
 document.getElementById("express-price-submit-btn")?.addEventListener("click", async () => {
   const input = document.getElementById("express-price-input");
   const statusEl = document.getElementById("express-price-status");
-  const newPrice = parseFloat(input.value);
+  const newPrice = parseFloat(String(input.value).replace(",", "."));
   if (isNaN(newPrice) || newPrice < 0 || newPrice > 20) { statusEl.textContent = "Ungültiger Preis (0-20€)."; return; }
   try {
     await setDoc(statusDocRef, { expressPrice: newPrice }, { merge: true });

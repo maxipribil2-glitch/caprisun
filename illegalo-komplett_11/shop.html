@@ -137,6 +137,8 @@ textarea{resize:vertical;}
 #express-toggle-btn.active { background: var(--am,#f59e0b) !important; color: #1a0a14 !important; }
 .express-hf-btn { background: transparent; border: 1.5px solid var(--bd); color: var(--mu); }
 .express-hf-btn.selected { background: var(--in); border-color: var(--in); color: #1a0a14; }
+.tip-preset-btn { background: transparent; border: 1.5px solid var(--gr,#22c55e); color: var(--gr,#22c55e); }
+.tip-preset-btn.selected { background: var(--gr,#22c55e); border-color: var(--gr,#22c55e); color: #0a1408; }
 /* MAP FEATURE: Shop-Login-Gate — solang nicht eingeloggt, wird der komplette
    Shop-Inhalt versteckt und nur das Login/Register-Modal (als Vollbild-Gate)
    gezeigt, exakt wie beim Gamecenter-Login (gc-index.html). */
@@ -262,6 +264,21 @@ body.shop-locked > .page {
         <span style="font-size:.85rem;">Is was Warmes dabei?</span>
         <button type="button" class="express-hf-btn" data-hot="true" onclick="setExpressHotFood(true)" style="padding:6px 12px;font-size:.8rem;">🔥 Ja</button>
         <button type="button" class="express-hf-btn" data-hot="false" onclick="setExpressHotFood(false)" style="padding:6px 12px;font-size:.8rem;">❄️ Nein</button>
+        <span id="express-hf-confirm" class="hidden" style="font-size:.75rem;color:var(--gr,#22c55e);">✅ Notiert</span>
+      </div>
+
+      <div class="fg" style="margin-top:14px;">
+        <label for="tip-input">💚 Trinkgeld (optional)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="tip-input" type="text" inputmode="decimal" placeholder="z.B. 2 oder 2,50" oninput="updateTip()" style="flex:1;">
+          <span style="font-size:.85rem;color:var(--mu);">€</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <button type="button" class="tip-preset-btn" onclick="setTipPreset(1)" style="padding:5px 12px;font-size:.75rem;">1€</button>
+          <button type="button" class="tip-preset-btn" onclick="setTipPreset(2)" style="padding:5px 12px;font-size:.75rem;">2€</button>
+          <button type="button" class="tip-preset-btn" onclick="setTipPreset(5)" style="padding:5px 12px;font-size:.75rem;">5€</button>
+          <button type="button" class="tip-preset-btn" onclick="setTipPreset(0)" style="padding:5px 12px;font-size:.75rem;background:transparent;border:1.5px solid var(--bd);color:var(--mu);">Kein Trinkgeld</button>
+        </div>
       </div>
     </div>
   </div>
@@ -685,6 +702,7 @@ window.toggleExpress = function() {
     question.classList.add("hidden");
     expressHasHotFood = null;
     document.querySelectorAll(".express-hf-btn").forEach(b => b.classList.remove("selected"));
+    document.getElementById("express-hf-confirm")?.classList.add("hidden");
   }
   updateTotal();
 };
@@ -692,13 +710,40 @@ window.toggleExpress = function() {
 window.setExpressHotFood = function(isHot) {
   expressHasHotFood = isHot;
   document.querySelectorAll(".express-hf-btn").forEach(b => b.classList.toggle("selected", (b.dataset.hot === "true") === isHot));
+  document.getElementById("express-hf-confirm")?.classList.remove("hidden");
 };
 
 function getExpressPrice() { return lastStatusData.expressPrice ?? 1; }
 
+// MAP FEATURE: Trinkgeld — optional, beliebiger Betrag, wird in die
+// Gesamtsumme mit reingerechnet und an die Bestellung angehängt.
+let tipAmount = 0;
+
+window.updateTip = function() {
+  const input = document.getElementById("tip-input");
+  const parsed = parseFloat(String(input.value).replace(",", "."));
+  tipAmount = (!isNaN(parsed) && parsed >= 0) ? parsed : 0;
+  document.querySelectorAll(".tip-preset-btn").forEach(b => b.classList.remove("selected"));
+  updateTotal();
+};
+
+window.setTipPreset = function(amount) {
+  tipAmount = amount;
+  document.getElementById("tip-input").value = amount > 0 ? String(amount).replace(".", ",") : "";
+  document.querySelectorAll(".tip-preset-btn").forEach(b => b.classList.toggle("selected", parseFloat(b.textContent) === amount || (amount === 0 && b.textContent.includes("Kein"))));
+  updateTotal();
+};
+
+function resetTipState() {
+  tipAmount = 0;
+  const input = document.getElementById("tip-input");
+  if (input) input.value = "";
+  document.querySelectorAll(".tip-preset-btn").forEach(b => b.classList.remove("selected"));
+}
+
 function calcTotal() {
   const itemsTotal = items.reduce((s,it)=>s+(parseFloat(String(it.price).replace(",","."))||0)*(parseInt(it.qty)||1),0);
-  return itemsTotal + (expressSelected ? getExpressPrice() : 0);
+  return itemsTotal + (expressSelected ? getExpressPrice() : 0) + tipAmount;
 }
 
 function renderItems() {
@@ -798,6 +843,7 @@ function resetExpressState() {
   expressSelected = false; expressHasHotFood = null;
   document.getElementById("express-toggle-btn")?.classList.remove("active");
   document.getElementById("express-hotfood-question")?.classList.add("hidden");
+  document.getElementById("express-hf-confirm")?.classList.add("hidden");
   document.querySelectorAll(".express-hf-btn").forEach(b => b.classList.remove("selected"));
 }
 
@@ -839,6 +885,10 @@ window.postOrder = async () => {
     orderPayload.expressHasHotFood = expressHasHotFood;
     orderPayload.expressPrice = getExpressPrice();
   }
+  // MAP FEATURE: Trinkgeld an die Bestellung anhängen, falls angegeben
+  if (tipAmount > 0) {
+    orderPayload.tip = tipAmount;
+  }
   // MAP FEATURE: Gratis-Lieferung-Voucher (Jackpot vom einarmigen Banditen) an
   // die Bestellung anhängen, damit Admin/Lieferant sofort sehen "keine Lieferkosten!"
   if (hasVoucher) orderPayload.freeDeliveryVoucher = true;
@@ -853,6 +903,7 @@ window.postOrder = async () => {
     document.getElementById("d-note").value="";
     items=[{name:"",emoji:"📦",qty:1,price:""}]; renderItems();
     resetExpressState();
+    resetTipState();
     showToast("Offline gespeichert — wird automatisch gepostet wenn Verbindung zurück! 📡");
     isSubmitting=false; btn.disabled=false; btn.textContent="📤 Bestellung jetzt posten";
     return;
@@ -873,6 +924,7 @@ window.postOrder = async () => {
     localStorage.setItem("illegalo_last_customer", JSON.stringify({name, address}));
     localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
     resetExpressState();
+    resetTipState();
     localStorage.setItem("illegalo_last_order", JSON.stringify({
       items: items.map(it => ({...it})),
       cat: document.getElementById("d-cat").value,

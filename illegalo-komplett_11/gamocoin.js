@@ -124,9 +124,14 @@ export async function awardGameReward(uid, amount, reason) {
 export async function claimDailyBonus(uid) {
   try {
     const { data, error } = await supabase.rpc("claim_daily_bonus", { p_uid: uid, p_bonus_amount: DAILY_BONUS });
-    if (error) return { claimed: false };
+    // MAP FIX (Wiederholungsbug): reason wurde hier nie durchgereicht (nur bei
+    // claimChallengeReward) — lobby.js checkt aber res.reason === "killswitch_active"
+    // für BEIDE. Ohne reason im Rückgabewert kam der Kill-Switch-Hinweis beim Daily
+    // Bonus nie an, auch nachdem die RPC selbst den Kill Switch prüft.
+    if (error) return { claimed: false, reason: "error" };
     return {
       claimed: data.claimed,
+      reason: data.reason,
       amount: data.amount,
       nextBonus: data.next_bonus ? new Date(data.next_bonus).getTime() : null
     };
