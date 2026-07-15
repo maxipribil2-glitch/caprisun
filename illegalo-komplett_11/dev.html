@@ -708,7 +708,7 @@ function checkKillswitchReminder() {
   if (!data.killswitchAt) return;
   const activeSince = new Date(data.killswitchAt).getTime();
   const hoursActive = (Date.now() - activeSince) / 3600000;
-  const currentBucket = Math.floor(hoursActive / 2);
+  const currentBucket = Math.floor(hoursActive / 1);
   if (currentBucket >= 1 && currentBucket !== killswitchLastReminderBucket) {
     killswitchLastReminderBucket = currentBucket;
     showToast(`⚠️ Kill Switch is schon seit ${hoursActive.toFixed(1)}h aktiv — alles klar so?`);
@@ -1133,6 +1133,10 @@ window.activateKillSwitch = async function() {
   } catch(e) {}
   try {
     await setDoc(doc(db, "gcConfig", "site"), { maintenance: true }, { merge: true });
+    // MAP FIX (Kill-Switch-Bypass-Schutz): Supabase (wo Coins/Daily Bonus/Slot
+    // Machine laufen) wurde bisher NIE mitinformiert — die RPC-Functions dort
+    // hatten also keine Ahnung dass Kill Switch aktiv is und liefen normal weiter.
+    await supabase.from("gc_config").update({ maintenance: true }).eq("id", "site");
     gcOk = true;
   } catch(e) {}
   addDoc(auditCol, { action: "KILL SWITCH aktiviert ☠️", by: (EARLY_AUTH.currentUser?.email || "dev-panel"), at: new Date().toISOString() }).catch(()=>{});
@@ -1159,6 +1163,10 @@ window.setEmergency = async function(reason) {
   try {
     await setDoc(statusDocRef, { shop: false, admin: false, lieferant: false, reason }, { merge: true });
     const names = { ferien:"Ferien-Modus", krank:"Admin-krank-Modus", mittagspause:"Keine-Mittagspause-Modus" };
+    // MAP FEATURE (Verbesserungsvorschlag Punkt 2): Audit-Log jetzt auch für
+    // diese Status-Änderungen, gleiches Pattern wie beim Kill Switch — vorher
+    // nur der Kill Switch selbst nachvollziehbar, diese 3 Modi nicht.
+    addDoc(auditCol, { action: `${names[reason]} aktiviert`, by: (EARLY_AUTH.currentUser?.email || "dev-panel"), at: new Date().toISOString() }).catch(()=>{});
     showToast(`${names[reason]} aktiviert! 🚨`);
   } catch(e) { showToast("Fehler: "+e.message, true); }
 };
@@ -1170,6 +1178,7 @@ window.restoreAll = async function() {
     // schadet nix falls er's nicht war (setzt einfach maintenance:false, was eh der
     // Normalzustand ist).
     await setDoc(doc(db, "gcConfig", "site"), { maintenance: false }, { merge: true });
+    await supabase.from("gc_config").update({ maintenance: false }).eq("id", "site");
     addDoc(auditCol, { action: "Alle Seiten reaktiviert ✅", by: (EARLY_AUTH.currentUser?.email || "dev-panel"), at: new Date().toISOString() }).catch(()=>{});
     showToast("Alle Webseiten + Gamecenter wieder online! ✅");
   } catch(e) { showToast("Fehler: "+e.message, true); }

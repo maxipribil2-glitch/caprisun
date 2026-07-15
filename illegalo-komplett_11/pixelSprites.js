@@ -102,6 +102,20 @@ export const SPRITES = {
     "............",
     "............",
   ].map(r => r.slice(0,12)),
+  mole: [
+    "............",
+    "..K......K..",
+    "..Ky......y.",
+    ".KyyyyyyyyK.",
+    "KyyyyyyyyyyK",
+    "KyKKyyyyKKyK",
+    "KyKKyyyyKKyK",
+    "KyyyyyyyyyyK",
+    "KyyKyyyyKyyK",
+    ".KyyyyyyyyK.",
+    "..KKKKKKKK..",
+    "............",
+  ].map(r => r.slice(0,12)),
 };
 
 /**

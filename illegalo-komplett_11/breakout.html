@@ -46,6 +46,11 @@ window.toggleGcTheme = function() {
 
   <div class="panel">
     <h2>🏆 Top 5</h2>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button class="lb-filter-btn on" data-filter="all" style="padding:4px 10px;font-size:10px;">Ever</button>
+      <button class="lb-filter-btn" data-filter="week" style="padding:4px 10px;font-size:10px;">Woche</button>
+      <button class="lb-filter-btn" data-filter="today" style="padding:4px 10px;font-size:10px;">Heute</button>
+    </div>
     <ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul>
   </div>
 
@@ -56,7 +61,11 @@ window.toggleGcTheme = function() {
 <div style="position:fixed;bottom:56px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,.9);color:#1a0a00;font-size:.75rem;font-weight:700;padding:5px 14px;border-radius:20px;z-index:999;display:none;" id="sw-offline-hint">📡 Offline — läuft aus dem Cache!</div>
 <div class="map-sig">MAP</div>
 <div class="version-tag">v1.4
-<style>.hidden{display:none;}</style>
+<style>
+.hidden{display:none;}
+.lb-filter-btn{background:transparent;border:1.5px solid var(--bd);color:var(--mu);box-shadow:none;}
+.lb-filter-btn.on{background:var(--in);border-color:var(--in);color:#1a0a14;}
+</style>
 <script type="module" src="maintenance.js"></script>
 <script type="module" src="breakout.js"></script>
 <script>

@@ -198,16 +198,39 @@ async function submitScore() {
   loadLeaderboard();
 }
 
+// MAP FEATURE (Verbesserungsvorschlag Punkt 7): Highscore-Zeitraum-Filter statt
+// nur ewiger Top-5 — "Heute"/"Woche" nutzen createdAt (das Feld heißt hier
+// "createdAt", andere Games könnten "at" nutzen, beim Ausrollen auf weitere
+// Games checken!). Proof-of-Concept für breakout.js, noch nicht auf alle 20
+// Solo-Games ausgerollt (zu viel Scope für einen Rutsch).
+let lbFilter = "all";
+document.querySelectorAll(".lb-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".lb-filter-btn").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    lbFilter = btn.dataset.filter;
+    loadLeaderboard();
+  });
+});
+
 async function loadLeaderboard() {
   try {
     const snap = await getDocs(query(collection(db, "scores"), where("game", "==", "breakout")));
-    const all = snap.docs.map(d => d.data());
+    let all = snap.docs.map(d => d.data());
     const mine = all.filter(s => s.uid === myUid).map(s => s.score);
     bestEl.textContent = "Best: " + (mine.length ? Math.max(...mine) : 0);
+
+    if (lbFilter !== "all") {
+      const cutoffMs = lbFilter === "today"
+        ? new Date().setHours(0,0,0,0)
+        : Date.now() - 7*24*60*60*1000;
+      all = all.filter(s => (s.createdAt?.toMillis?.() || 0) >= cutoffMs);
+    }
+
     const top = [...all].sort((a, b) => b.score - a.score).slice(0, 5);
     leaderboardEl.innerHTML = top.length
       ? top.map((s, i) => `<li><span>#${i + 1} ${s.name || "?"}</span><span>${s.score}</span></li>`).join("")
-      : `<li class="empty">Noch keine Scores — sei der Erste!</li>`;
+      : `<li class="empty">${lbFilter === "all" ? "Noch keine Scores — sei der Erste!" : "Noch keine Scores in diesem Zeitraum."}</li>`;
   } catch (e) {}
 }
 

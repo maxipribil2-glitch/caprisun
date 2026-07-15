@@ -143,7 +143,11 @@ submitBtn.addEventListener("click", submitWord);
 inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") submitWord(); });
 
 rematchBtn.addEventListener("click", async () => {
-  await updateDoc(roomRef, { status:"active", winner:null, chain: [], turn: currentRoom.players[0], turnStartAt: Date.now() });
+  // MAP FEATURE (Verbesserungsvorschlag Punkt 4): Startspieler wird bei Rematch
+  // jetzt zufällig ausgelost statt immer den Host (players[0]) anfangen zu
+  // lassen — fairer, gleiches Prinzip wie schon bei chess.js/checkers.js.
+  const starter = Math.random() < 0.5 ? currentRoom.players[0] : currentRoom.players[1];
+  await updateDoc(roomRef, { status:"active", winner:null, chain: [], turn: starter, turnStartAt: Date.now() });
 });
 
 leaveBtn.addEventListener("click", async () => {

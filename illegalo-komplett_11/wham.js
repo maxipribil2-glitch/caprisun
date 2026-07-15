@@ -5,6 +5,7 @@ import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs
 import { renderShopAd } from "./ads.js";
 import { sfx } from "./sfx.js";
 import { awardGameReward } from "./gamocoin.js";
+import { spriteCanvas } from "./pixelSprites.js";
 
 const auth = getAuth(app), db = getFirestore(app);
 const HOLES = 9;
@@ -45,7 +46,9 @@ function renderGrid() {
   for (let i = 0; i < HOLES; i++) {
     const hole = document.createElement("div");
     hole.className = "mole-hole" + (i === activeHole ? " up" : "");
-    hole.textContent = i === activeHole ? "🐹" : "";
+    // MAP FEATURE (Verbesserungsvorschlag Punkt 6): Pixel-Sprite statt Emoji —
+    // sieht auf jedem Gerät identisch aus statt je nach OS unterschiedlich.
+    if (i === activeHole) hole.appendChild(spriteCanvas("mole", 40));
     hole.addEventListener("click", () => hitMole(i));
     gridEl.appendChild(hole);
   }

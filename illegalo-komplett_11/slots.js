@@ -116,6 +116,9 @@ spinBtn.addEventListener("click", async () => {
     } else if (res.reason === "no_bonus_spins") {
       statusEl.textContent = "Keine Bonus-Spins mehr übrig.";
       spinBtn.disabled = false;
+    } else if (res.reason === "killswitch_active") {
+      statusEl.textContent = "🛑 Gerade nicht verfügbar — Server im Wartungsmodus.";
+      spinBtn.disabled = false;
     } else {
       statusEl.textContent = "Konnte grad nicht drehen, versuch's nochmal.";
       spinBtn.disabled = false;
@@ -145,6 +148,8 @@ buySpinBtn.addEventListener("click", async () => {
     sfx.coin ? sfx.coin() : null;
   } else if (res.reason === "insufficient") {
     statusEl.textContent = `Nicht genug Coins — du hast ${res.balance} 🪙, brauchst ${res.cost || bonusSpinPrice}.`;
+  } else if (res.reason === "killswitch_active") {
+    statusEl.textContent = "🛑 Gerade nicht verfügbar — Server im Wartungsmodus.";
   } else {
     statusEl.textContent = "Kauf fehlgeschlagen, versuch's nochmal.";
   }

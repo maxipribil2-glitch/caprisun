@@ -531,6 +531,8 @@ function renderDailyChallenge() {
     } else if (res.nextClaim) {
       const hoursLeft = Math.ceil((res.nextClaim - Date.now()) / 3600000);
       statusEl.textContent = `Heute schon geclaimt — nochmal in ~${hoursLeft}h.`;
+    } else if (res.reason === "killswitch_active") {
+      statusEl.textContent = "🛑 Gerade nicht verfügbar — Server im Wartungsmodus.";
     } else {
       statusEl.textContent = "Ging grad nicht, versuch's nochmal.";
     }
@@ -581,6 +583,7 @@ onAuthStateChanged(auth, async (user) => {
     setTimeout(() => showToast(`🎁 Daily Bonus abgeholt! +${claimedAmount} 🪙`), 400);
   }
   listenActiveRooms();
+  listenRouletteTables();
   requestNotifPermission();
 });
 
@@ -720,6 +723,8 @@ async function loadDailyBonusPanel() {
           // Button verschwindet einfach mit Hinweis statt Coins nochmal zu geben.
           showToast(`Schon abgeholt heute! 🎁`);
           contentEl.innerHTML = `<div class="empty">Nächster Bonus in 24h ⏳</div>`;
+        } else if (res.reason === "killswitch_active") {
+          showToast(`🛑 Gerade nicht verfügbar — Server im Wartungsmodus.`, true);
         }
       });
     } else {
@@ -899,6 +904,38 @@ logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   window.location.href = "gc-index.html";
 });
+
+// MAP FEATURE (Verbesserungsvorschlag Punkt 5): Übersicht "welche Roulette-
+// Tische sind grad offen" — vorher gab's nur den globalen "main"-Tisch oder
+// private Tische über Invite-Links, aber keine Möglichkeit zu sehen was schon
+// existiert. Zeigt Tische die in den letzten 2h aktiv waren.
+function listenRouletteTables() {
+  const listEl = document.getElementById("roulette-tables-list");
+  if (!listEl) return;
+  const q = query(collection(db, "rouletteTables"));
+  onSnapshot(q, snap => {
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const tables = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(t => {
+        const created = t.createdAt?.toMillis?.() || 0;
+        return Date.now() - created <= TWO_HOURS;
+      })
+      .sort((a,b) => Object.keys(b.players||{}).length - Object.keys(a.players||{}).length);
+    if (!tables.length) {
+      listEl.innerHTML = `<div class="empty">Grad keine aktiven Tische — <a href="roulette.html">selbst einen eröffnen</a>!</div>`;
+      return;
+    }
+    listEl.innerHTML = tables.map(t => {
+      const playerCount = Object.keys(t.players || {}).length;
+      const phaseLabel = { betting: "🎯 Wetten offen", spinning: "🎡 Dreht grad", result: "🏆 Ergebnis" }[t.phase] || t.phase;
+      return `<a href="roulette.html?table=${encodeURIComponent(t.id)}" style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px dashed var(--bd);text-decoration:none;color:var(--tx);">
+        <span>🎰 ${t.id === "main" ? "Haupttisch" : t.id} (${playerCount} 👤)</span>
+        <span style="color:var(--am);">${phaseLabel} →</span>
+      </a>`;
+    }).join("");
+  }, () => { listEl.innerHTML = `<div class="empty">Konnte Tische nicht laden.</div>`; });
+}
 
 function listenActiveRooms() {
   const spectateListEl = document.getElementById("spectate-list");
