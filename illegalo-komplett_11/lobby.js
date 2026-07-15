@@ -101,6 +101,7 @@ const ARCADE_GAMES = [
   { id: "bubbleshooter", name: "Bubble Shooter", icon: "🔵", page: "bubbleshooter.html" },
   { id: "stroop", name: "Farb-Reflex", icon: "🌈", page: "stroop.html" },
   { id: "balloonpop", name: "Balloon Pop", icon: "🎈", page: "balloonpop.html" },
+  { id: "wordsearch", name: "Wortsuche", icon: "🔤", page: "wordsearch.html" },
 ];
 
 const SNAKEIO_GRID = 20;

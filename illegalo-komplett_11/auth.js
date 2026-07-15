@@ -57,6 +57,9 @@ showLoginBtn.addEventListener("click", () => {
 // gefehlt. Verhindert automatisiertes Passwort-Durchprobieren.
 const MAX_LOGIN_ATTEMPTS = 5, LOGIN_LOCKOUT_MS = 30*1000;
 let loginAttempts = 0, loginLockedUntil = 0;
+// MAP FEATURE (Verbesserungsvorschlag Punkt 3): gleiche Eskalation wie im Dev
+// Panel — jede weitere Sperre wird länger (30s -> 60s -> 120s -> ...).
+let loginLockoutCount = 0;
 
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -80,8 +83,10 @@ loginForm.addEventListener("submit", async (e) => {
   } catch (err) {
     loginAttempts++;
     if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-      loginLockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
-      showError(`Zu viele Fehlversuche — warte ${LOGIN_LOCKOUT_MS/1000}s.`);
+      loginLockoutCount++;
+      const escalatedMs = LOGIN_LOCKOUT_MS * Math.pow(2, loginLockoutCount - 1);
+      loginLockedUntil = Date.now() + escalatedMs;
+      showError(`Zu viele Fehlversuche — warte ${escalatedMs/1000}s.`);
     } else {
       showError(friendlyError(err) + ` (${loginAttempts}/${MAX_LOGIN_ATTEMPTS} Versuche)`);
     }

@@ -64,10 +64,21 @@ service cloud.firestore {
     // reicht für sensible Illegalo-Sachen (Kill-Switch, Sperren, Audit-Log etc.)
     // nicht. Deshalb zusätzlich die Email-Domain checken: Illegalo-Personal hat
     // immer @illegalo.local, Gamecenter-Spieler immer @mpgames.local.
+    // MAP FEATURE (Verbesserungsvorschlag Punkt 2): zusätzlich zur Email-Domain
+    // jetzt auch ne explizite UID-Allowlist — BEIDE Bedingungen müssen zutreffen.
+    // Verhindert dass ein aus Versehen angelegter @illegalo.local-Account (Tippfehler
+    // bei Registrierung) automatisch Staff-Rechte bekommt. Liste manuell pflegen,
+    // gleiche UIDs wie in Supabase's staff_uids-Tabelle.
     function isIllegaloStaff() {
       return request.auth != null
           && request.auth.token.email != null
-          && request.auth.token.email.matches('.*@illegalo[.]local$');
+          && request.auth.token.email.matches('.*@illegalo[.]local$')
+          && request.auth.uid in [
+            'PbwdFCaIndWuVq4btXwMCZPwxxg2', // giannihay
+            'iLbijuqyS0OiO9wXtCDKg7eNpTg1', // philippstangl
+            'DLrzZ4Kbq0Si1Tz8fmsrFARxuMy2', // henrikstelzner
+            'kI069Fob1SUxn4pto2boADLsZF73'  // maxipribil (Owner)
+          ];
     }
 
     // MAP FEATURE: Kill Switch server-seitig durchsetzen — der Screen selbst
@@ -236,6 +247,10 @@ service cloud.firestore {
                    && (!('admin' in request.resource.data) || request.resource.data.admin is bool)
                    && (!('lieferant' in request.resource.data) || request.resource.data.lieferant is bool)
                    && (!('scheduleEnabled' in request.resource.data) || request.resource.data.scheduleEnabled is bool)
+                   && (!('expressPrice' in request.resource.data)
+                       || (request.resource.data.expressPrice is number
+                           && request.resource.data.expressPrice >= 0
+                           && request.resource.data.expressPrice <= 20))
                    && (!('reason' in request.resource.data)
                        || request.resource.data.reason == null
                        || request.resource.data.reason in ['ferien','krank','geschlossen','mittagspause','killswitch']);
@@ -311,7 +326,7 @@ service cloud.firestore {
       allow create: if !killSwitchActive()
         && request.auth != null
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.game in ['snake', 'breakout', '2048', 'flappy', 'minesweeper', 'memory', 'stacktower', 'anagramm', 'coinrush', 'wordle', 'simon', 'typing', 'sudoku', 'pixelart', 'slithersolo', 'wham', 'bubbleshooter', 'stroop', 'balloonpop']
+        && request.resource.data.game in ['snake', 'breakout', '2048', 'flappy', 'minesweeper', 'memory', 'stacktower', 'anagramm', 'coinrush', 'wordle', 'simon', 'typing', 'sudoku', 'pixelart', 'slithersolo', 'wham', 'bubbleshooter', 'stroop', 'balloonpop', 'wordsearch']
         && request.resource.data.score is number
         && request.resource.data.score >= 0
         && request.resource.data.score < 100000;

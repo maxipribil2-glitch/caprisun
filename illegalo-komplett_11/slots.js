@@ -42,7 +42,32 @@ onAuthStateChanged(auth, async (user) => {
   myUid = user.uid;
   await refreshBonusSpins();
   await refreshSpinPrice();
+  listenKillswitchLive();
 });
+
+// MAP FEATURE (Verbesserungsvorschlag Punkt 5): Realtime-Listener auf
+// gc_config.maintenance — vorher hätte man erst beim nächsten Spin-Versuch
+// gemerkt dass Kill Switch aktiv is (Fehler kam erst nach Klick). Jetzt gibt's
+// sofort ne Meldung, auch wenn man schon länger auf der Seite is.
+function listenKillswitchLive() {
+  supabase
+    .channel("slots-killswitch-watch")
+    .on("postgres_changes",
+      { event: "UPDATE", schema: "public", table: "gc_config", filter: "id=eq.site" },
+      (payload) => {
+        if (payload.new.maintenance === true) {
+          spinBtn.disabled = true;
+          buySpinBtn.disabled = true;
+          statusEl.textContent = "🛑 Server grad im Wartungsmodus — später nochmal vorbeischauen.";
+        } else if (payload.new.maintenance === false) {
+          spinBtn.disabled = false;
+          buySpinBtn.disabled = false;
+          statusEl.textContent = "✅ Server is wieder online!";
+        }
+      }
+    )
+    .subscribe();
+}
 
 let bonusSpinPrice = 1000;
 async function refreshSpinPrice() {

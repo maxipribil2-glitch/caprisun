@@ -494,6 +494,15 @@ button{font-family:'Inter',sans-serif;}
         </div>
         <div class="chart-card"><h3>⭐ Bewertungen</h3><div id="chart-ratings"></div></div>
       </div>
+      <div class="dash-grid">
+        <div class="chart-card"><h3>🚀 Illegalo-Express-Preis</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="admin-express-price-input" type="number" step="0.1" min="0" max="20" placeholder="z.B. 1" style="flex:1;background:var(--s2);border:1.5px solid var(--bd);border-radius:9px;padding:8px 10px;color:var(--tx);font-size:.85rem;">
+            <button class="export-btn" onclick="saveAdminExpressPrice()">Speichern ✅</button>
+          </div>
+          <div id="admin-express-price-status" style="font-size:.75rem;color:var(--mu2);margin-top:.5rem;"></div>
+        </div>
+      </div>
       <div class="tbl-wrap">
         <div style="padding:.9rem 1.1rem;border-bottom:1px solid var(--bd);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--mu2);">Neueste Bestellungen</div>
         <table class="tbl"><thead><tr><th>Order</th><th>Kunde</th><th>Status</th><th>Betrag</th></tr></thead>
@@ -649,6 +658,9 @@ function evaluateSiteStatus() {
 onSnapshot(doc(EARLY_DB,"siteStatus","main"), snap => {
   lastStatusData = snap.data() || {};
   evaluateSiteStatus();
+  // MAP FEATURE: Express-Preis-Input im Dashboard live mit dem aktuellen Wert befüllen
+  const expInput = document.getElementById("admin-express-price-input");
+  if (expInput && document.activeElement !== expInput) expInput.value = lastStatusData.expressPrice ?? 1;
 }, err => {});
 setInterval(evaluateSiteStatus, 30000);
 
@@ -943,6 +955,24 @@ window.toggleGamecenter = async function() {
     await setDoc(doc(db, "gcConfig", "site"), { maintenance: turningOff }, { merge: true });
     showToast(turningOff ? "Gamecenter ausgeschaltet 🔌" : "Gamecenter wieder online! ✅");
   } catch(e) { showToast("Fehler: " + e.message, true); logError(e, "toggleGamecenter"); }
+};
+
+// MAP FEATURE: Illegalo-Express-Preis auch im Admin Panel einstellbar (gleiche
+// Firestore-Stelle wie im Dev Panel, siteStatus/main.expressPrice)
+window.saveAdminExpressPrice = async function() {
+  const input = document.getElementById("admin-express-price-input");
+  const statusEl = document.getElementById("admin-express-price-status");
+  const newPrice = parseFloat(input.value);
+  if (isNaN(newPrice) || newPrice < 0 || newPrice > 20) { statusEl.textContent = "Ungültiger Preis (0-20€)."; return; }
+  try {
+    await setDoc(doc(db, "siteStatus", "main"), { expressPrice: newPrice }, { merge: true });
+    statusEl.textContent = `✅ Gespeichert: ${newPrice}€`;
+    showToast(`Express-Preis auf ${newPrice}€ gesetzt 🚀`);
+  } catch (e) {
+    statusEl.textContent = "❌ Fehler beim Speichern.";
+    showToast("Preis konnte nicht gespeichert werden.", true);
+    logError(e, "saveAdminExpressPrice");
+  }
 };
 
 onSnapshot(notesCol, snap => {
@@ -1463,13 +1493,14 @@ function renderOrdersTable() {
           <td><div class="ord-id">${fmtOrderNum(o)}</div><div class="ord-date">${fmtDt(o.date)}</div></td>
           <td><div class="ord-name">${o.customer?.name||"?"}${orderCount>1?` <span style="color:var(--gr);font-size:.68rem;font-weight:700">⭐${orderCount}x</span>`:""}</div><div class="ord-email">${o.customer?.email||""}</div></td>
           <td style="color:var(--mu2);font-size:.8rem">${o.items?.length||0} Artikel</td>
-          <td><span class="pill ${pillCls(o.status)}${isStale?" stale":""}">${o.status}</span>${isStale?'<span class="stale-badge">⚠️ überfällig</span>':""}${isUnassignedOverdue?'<span class="stale-badge">🚫 nicht zugewiesen</span>':""}</td>
+          <td><span class="pill ${pillCls(o.status)}${isStale?" stale":""}">${o.status}</span>${isStale?'<span class="stale-badge">⚠️ überfällig</span>':""}${isUnassignedOverdue?'<span class="stale-badge">🚫 nicht zugewiesen</span>':""}${o.express?'<span class="stale-badge" style="background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.4);color:var(--am)">🚀 Express</span>':""}</td>
           <td><span class="ord-total">${fmt(o.total)}</span></td>
           <td style="color:var(--mu2)">${isExp?"▲":"▼"}</td>
         </tr>
         ${isExp?`<tr class="exp-row"><td colspan="6"><div class="exp-inner">
           <div class="ds"><h3>🛍️ Artikel</h3><div class="ilist">${(o.items||[]).map(it=>`<div class="oi"><span class="oii">${it.icon}</span><span class="oin">${it.name}</span><span class="oiq">×${it.qty}</span><span class="oip">${fmt(it.price*it.qty)}</span></div>`).join("")}</div></div>
           <div class="ds"><h3>📋 Details</h3>
+            ${o.express?`<div class="note-badge" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--am)">🚀 <div><strong>Express gewählt</strong> (+${fmt(o.expressPrice||1)}) — ${o.expressHasHotFood?"🔥 Warmes dabei, kommt als LETZTES":"❄️ Nix Warmes, kommt als ERSTES"}</div></div>`:""}
             ${orderCount>1?`<div class="note-badge" style="background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:var(--gr)">⭐ <div>${escapeHtml(o.customer?.name||"Kunde")} hat schon <strong>${orderCount}x</strong> bestellt — Stammkunde!</div></div>`:""}
             ${note?`<div class="note-badge">📌 <div>${escapeHtml(note)}<br/><button class="note-edit-btn" onclick="event.stopPropagation();openNoteModal('${o.customer?.name||""}')">Notiz bearbeiten</button></div></div>`:`<button class="note-edit-btn" onclick="event.stopPropagation();openNoteModal('${o.customer?.name||""}')" style="margin-bottom:.6rem">+ Notiz für ${o.customer?.name||"Kunde"} hinzufügen</button>`}
             ${[["Adresse",o.customer?.address],["Telefon",o.customer?.phone],["Kategorie",o.cat],["Zahlung",o.pay],["Versand",o.ship],o.note?["Notiz zur Order",o.note]:null].filter(Boolean).map(([l,v])=>v?`<div class="dr"><span class="drl">${l}</span><span class="drv">${v}</span></div>`:"").join("")}

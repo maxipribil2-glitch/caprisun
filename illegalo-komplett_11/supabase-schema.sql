@@ -208,9 +208,6 @@ begin
   if p_uid != auth.jwt()->>'sub' then
     return jsonb_build_object('claimed', false, 'reason', 'unauthorized');
   end if;
-  if is_killswitch_active() then
-    return jsonb_build_object('claimed', false, 'reason', 'killswitch_active');
-  end if;
   select last_daily_bonus into v_last from users where firebase_uid = p_uid for update;
   if v_last is not null and now() - v_last < interval '24 hours' then
     return jsonb_build_object('claimed', false, 'next_bonus', v_last + interval '24 hours');
@@ -229,9 +226,6 @@ declare
 begin
   if p_uid != auth.jwt()->>'sub' then
     return jsonb_build_object('spun', false, 'reason', 'unauthorized');
-  end if;
-  if is_killswitch_active() then
-    return jsonb_build_object('spun', false, 'reason', 'killswitch_active');
   end if;
   select last_slot_spin into v_last from users where firebase_uid = p_uid for update;
   if v_last is not null and now() - v_last < interval '24 hours' then
@@ -297,9 +291,6 @@ begin
   if p_uid != auth.jwt()->>'sub' then
     return jsonb_build_object('claimed', false, 'reason', 'unauthorized');
   end if;
-  if is_killswitch_active() then
-    return jsonb_build_object('claimed', false, 'reason', 'killswitch_active');
-  end if;
   select last_challenge_claim into v_last from users where firebase_uid = p_uid for update;
   if v_last is not null and now() - v_last < interval '24 hours' then
     return jsonb_build_object('claimed', false, 'reason', 'too_soon', 'next_claim', v_last + interval '24 hours');
@@ -318,9 +309,6 @@ declare
 begin
   if p_uid != auth.jwt()->>'sub' then
     return jsonb_build_object('ok', false, 'reason', 'unauthorized');
-  end if;
-  if is_killswitch_active() then
-    return jsonb_build_object('ok', false, 'reason', 'killswitch_active');
   end if;
   -- MAP FEATURE: Preis kommt jetzt aus gc_config (im Dev Panel einstellbar)
   -- statt fest verdrahtet zu sein.
@@ -345,9 +333,6 @@ declare
 begin
   if p_uid != auth.jwt()->>'sub' then
     return jsonb_build_object('spun', false, 'reason', 'unauthorized');
-  end if;
-  if is_killswitch_active() then
-    return jsonb_build_object('spun', false, 'reason', 'killswitch_active');
   end if;
   select bonus_spins into v_bonus from users where firebase_uid = p_uid for update;
   if v_bonus is null or v_bonus <= 0 then
@@ -391,40 +376,6 @@ exception when unique_violation then
 end;
 $$;
 
--- MAP FIX (fehlende Function, Wiederholungsbug): dev.html ruft cleanup_old_logs() im
--- Log-Cleanup-Panel auf, aber die RPC existierte nirgends im Schema -> jeder Klick auf
--- "Alte Logs jetzt aufräumen" ist mit "function does not exist" fehlgeschlagen. Staff-only
--- (gleiche Prüfung wie admin_add_coins), löscht audit_log/voucher_log/error_log
--- Einträge älter als 90 Tage und meldet die gelöschten Zeilen pro Tabelle zurück.
-create or replace function cleanup_old_logs()
-returns jsonb language plpgsql as $$
-declare
-  v_audit_deleted bigint;
-  v_voucher_deleted bigint;
-  v_error_deleted bigint;
-begin
-  if not is_illegalo_staff() then
-    return jsonb_build_object('ok', false, 'reason', 'unauthorized');
-  end if;
-
-  delete from audit_log where at < now() - interval '90 days';
-  get diagnostics v_audit_deleted = row_count;
-
-  delete from voucher_log where at < now() - interval '90 days';
-  get diagnostics v_voucher_deleted = row_count;
-
-  delete from error_log where at < now() - interval '90 days';
-  get diagnostics v_error_deleted = row_count;
-
-  return jsonb_build_object(
-    'ok', true,
-    'audit_deleted', v_audit_deleted,
-    'voucher_deleted', v_voucher_deleted,
-    'error_deleted', v_error_deleted
-  );
-end;
-$$;
-
 alter table users enable row level security;
 alter table rooms enable row level security;
 alter table scores enable row level security;
@@ -453,21 +404,6 @@ alter table presence enable row level security;
 
 create or replace function is_illegalo_staff() returns boolean language sql stable as $$
   select coalesce((auth.jwt()->>'email') like '%@illegalo.local', false);
-$$;
-
--- MAP FIX (fehlende Server-Durchsetzung, Wiederholungsbug): Frontend (lobby.js,
--- slots.js) fragt bei claim_daily_bonus/claim_challenge_reward/spin_slot_machine/
--- use_bonus_spin/buy_bonus_spin schon seit der letzten Runde nen reason ===
--- 'killswitch_active' ab (mit passendem "Server im Wartungsmodus"-Hinweis), aber
--- KEINE dieser RPCs hat den Kill Switch je serverseitig geprüft — der Kill Switch
--- greift bisher nur in firestore.rules, nicht hier. Gleiches Prinzip wie
--- killSwitchActive() dort: Staff darf durch (braucht Zugriff aufs Dev Panel um
--- ihn selbst wieder auszuschalten).
-create or replace function is_killswitch_active() returns boolean language sql stable as $$
-  select coalesce(
-    (not is_illegalo_staff()) and (select reason from site_status where id = 'main') = 'killswitch',
-    false
-  );
 $$;
 
 -- users: jeder eingeloggte darf lesen, nur die EIGENE Zeile schreiben.

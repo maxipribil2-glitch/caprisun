@@ -134,8 +134,9 @@ textarea{resize:vertical;}
 #dino-canvas{background:var(--sf);border:1.5px solid var(--bd);border-radius:14px;touch-action:none;}
 .hidden { display: none !important; }
 #account-modal-overlay.show { display: flex !important; }
-.hidden { display: none !important; }
-#account-modal-overlay.show { display: flex !important; }
+#express-toggle-btn.active { background: var(--am,#f59e0b) !important; color: #1a0a14 !important; }
+.express-hf-btn { background: transparent; border: 1.5px solid var(--bd); color: var(--mu); }
+.express-hf-btn.selected { background: var(--in); border-color: var(--in); color: #1a0a14; }
 /* MAP FEATURE: Shop-Login-Gate — solang nicht eingeloggt, wird der komplette
    Shop-Inhalt versteckt und nur das Login/Register-Modal (als Vollbild-Gate)
    gezeigt, exakt wie beim Gamecenter-Login (gc-index.html). */
@@ -252,6 +253,17 @@ body.shop-locked > .page {
 
     </div>
     <div class="fg"><label>Anmerkung</label><textarea id="d-note" rows="3" placeholder="z.B. Bitte klingeln…"></textarea></div>
+
+    <div class="fg" style="margin-top:14px;">
+      <button type="button" id="express-toggle-btn" onclick="toggleExpress()" style="width:100%;background:transparent;border:2px solid var(--am,#f59e0b);color:var(--am,#f59e0b);text-align:left;padding:14px;line-height:1.5;">
+        🚀 <strong>Illegalo Express.</strong> Wenn du was Warmes kaufst kommt es als letztes und wenn nichts Warmes dabei ist als erstes. Kostet nur <span id="express-price-label">1</span>€ extra
+      </button>
+      <div id="express-hotfood-question" class="hidden" style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <span style="font-size:.85rem;">Is was Warmes dabei?</span>
+        <button type="button" class="express-hf-btn" data-hot="true" onclick="setExpressHotFood(true)" style="padding:6px 12px;font-size:.8rem;">🔥 Ja</button>
+        <button type="button" class="express-hf-btn" data-hot="false" onclick="setExpressHotFood(false)" style="padding:6px 12px;font-size:.8rem;">❄️ Nein</button>
+      </div>
+    </div>
   </div>
   <button class="post-btn" id="post-btn" onclick="postOrder()">📤 Bestellung jetzt posten</button>
 </div>
@@ -583,6 +595,11 @@ function evaluateSiteStatus() {
 onSnapshot(doc(db,"siteStatus","main"), snap => {
   lastStatusData = snap.data() || {};
   evaluateSiteStatus();
+  // MAP FEATURE: Express-Preis live im Button anzeigen, updated sich automatisch
+  // falls Staff den Preis im Dev/Admin Panel ändert während der Shop offen is.
+  const priceLabelEl = document.getElementById("express-price-label");
+  if (priceLabelEl) priceLabelEl.textContent = String(lastStatusData.expressPrice ?? 1).replace(".", ",");
+  if (typeof updateTotal === "function") updateTotal();
 }, err => {});
 setInterval(evaluateSiteStatus, 30000);
 const errorCol = collection(db, "errorLog");
@@ -652,7 +669,37 @@ const EMOJIS = ["📦","🎧","💻","🎮","👟","🧥","🍕","⚡","💪","�
 let items = [{name:"",emoji:"📦",qty:1,price:""}];
 let epOpen = null;
 
-function calcTotal() { return items.reduce((s,it)=>s+(parseFloat(String(it.price).replace(",","."))||0)*(parseInt(it.qty)||1),0); }
+// MAP FEATURE: Illegalo Express — optionaler Aufpreis, Preis kommt aus
+// siteStatus.expressPrice (im Dev/Admin Panel einstellbar).
+let expressSelected = false;
+let expressHasHotFood = null; // true/false/null (null = noch nicht beantwortet)
+
+window.toggleExpress = function() {
+  expressSelected = !expressSelected;
+  const btn = document.getElementById("express-toggle-btn");
+  const question = document.getElementById("express-hotfood-question");
+  btn.classList.toggle("active", expressSelected);
+  if (expressSelected) {
+    question.classList.remove("hidden");
+  } else {
+    question.classList.add("hidden");
+    expressHasHotFood = null;
+    document.querySelectorAll(".express-hf-btn").forEach(b => b.classList.remove("selected"));
+  }
+  updateTotal();
+};
+
+window.setExpressHotFood = function(isHot) {
+  expressHasHotFood = isHot;
+  document.querySelectorAll(".express-hf-btn").forEach(b => b.classList.toggle("selected", (b.dataset.hot === "true") === isHot));
+};
+
+function getExpressPrice() { return lastStatusData.expressPrice ?? 1; }
+
+function calcTotal() {
+  const itemsTotal = items.reduce((s,it)=>s+(parseFloat(String(it.price).replace(",","."))||0)*(parseInt(it.qty)||1),0);
+  return itemsTotal + (expressSelected ? getExpressPrice() : 0);
+}
 
 function renderItems() {
   const c = document.getElementById("items-container");
@@ -747,6 +794,13 @@ async function getNextOrderNumber() {
   } catch(e) { return null; }
 }
 
+function resetExpressState() {
+  expressSelected = false; expressHasHotFood = null;
+  document.getElementById("express-toggle-btn")?.classList.remove("active");
+  document.getElementById("express-hotfood-question")?.classList.add("hidden");
+  document.querySelectorAll(".express-hf-btn").forEach(b => b.classList.remove("selected"));
+}
+
 let isSubmitting = false;
 window.postOrder = async () => {
   if (isSubmitting) return;
@@ -760,6 +814,9 @@ window.postOrder = async () => {
   if (!name)    return showToast("Name fehlt! 😤",true);
   if (!address) return showToast("Adresse fehlt! 📍",true);
   if (items.some(it=>!it.name.trim()||!it.price)) return showToast("Alle Artikel ausfüllen! 📝",true);
+  // MAP FEATURE: Express-Bestellung braucht die Warm/Kalt-Antwort, sonst weiß
+  // Lieferant/Admin nicht wie die Reihenfolge sein soll.
+  if (expressSelected && expressHasHotFood === null) return showToast("Bei Illegalo Express: sag ob was Warmes dabei is! 🔥❄️",true);
   isSubmitting = true;
   const btn = document.getElementById("post-btn");
   btn.disabled=true; btn.textContent="Wird gepostet…";
@@ -774,6 +831,14 @@ window.postOrder = async () => {
     note: document.getElementById("d-note").value.trim(),
     status: "Verarbeitung",
   };
+  // MAP FEATURE: Illegalo Express — Wahl + Warm/Kalt-Info an die Bestellung
+  // anhängen, damit Admin/Lieferant sofort sehen "Express gewählt" + die
+  // richtige Reihenfolge-Logik (warm = zuletzt, kalt = zuerst) anwenden können.
+  if (expressSelected) {
+    orderPayload.express = true;
+    orderPayload.expressHasHotFood = expressHasHotFood;
+    orderPayload.expressPrice = getExpressPrice();
+  }
   // MAP FEATURE: Gratis-Lieferung-Voucher (Jackpot vom einarmigen Banditen) an
   // die Bestellung anhängen, damit Admin/Lieferant sofort sehen "keine Lieferkosten!"
   if (hasVoucher) orderPayload.freeDeliveryVoucher = true;
@@ -787,6 +852,7 @@ window.postOrder = async () => {
     localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
     document.getElementById("d-note").value="";
     items=[{name:"",emoji:"📦",qty:1,price:""}]; renderItems();
+    resetExpressState();
     showToast("Offline gespeichert — wird automatisch gepostet wenn Verbindung zurück! 📡");
     isSubmitting=false; btn.disabled=false; btn.textContent="📤 Bestellung jetzt posten";
     return;
@@ -806,6 +872,7 @@ window.postOrder = async () => {
     }
     localStorage.setItem("illegalo_last_customer", JSON.stringify({name, address}));
     localStorage.setItem("illegalo_last_post_ts", String(Date.now()));
+    resetExpressState();
     localStorage.setItem("illegalo_last_order", JSON.stringify({
       items: items.map(it => ({...it})),
       cat: document.getElementById("d-cat").value,

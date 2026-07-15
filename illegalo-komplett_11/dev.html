@@ -351,6 +351,21 @@ button,input{font-family:'Inter',sans-serif;}
           <div id="coin-mgmt-balance-preview" style="font-size:12px;color:var(--sub, #888);"></div>
         </div>
 
+        <div class="storage-hdr"><h3>🩺 Health Check</h3><span class="storage-count" id="health-check-status"></span></div>
+        <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
+          <div id="health-firestore" style="display:flex;justify-content:space-between;font-size:12px;"><span>Firestore</span><span>Prüfe…</span></div>
+          <div id="health-supabase" style="display:flex;justify-content:space-between;font-size:12px;"><span>Supabase</span><span>Prüfe…</span></div>
+          <div id="health-errors24h" style="display:flex;justify-content:space-between;font-size:12px;"><span>Fehler (24h)</span><span>Prüfe…</span></div>
+          <button id="health-refresh-btn" style="margin-top:4px;">Neu prüfen 🔄</button>
+        </div>
+
+        <div class="storage-hdr"><h3>🚀 Illegalo-Express-Preis</h3><span class="storage-count" id="express-price-status"></span></div>
+        <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
+          <label for="express-price-input" style="font-size:12px;">Aufpreis für Express (in €)</label>
+          <input id="express-price-input" type="number" step="0.1" min="0" max="20" placeholder="z.B. 1" style="padding:6px;">
+          <button id="express-price-submit-btn" style="margin-top:4px;">Preis speichern ✅</button>
+        </div>
+
         <div class="storage-hdr"><h3>🎰 Bonus-Spin-Preis</h3><span class="storage-count" id="spin-price-status"></span></div>
         <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
           <label for="spin-price-input" style="font-size:12px;">Preis pro Bonus Spin (in Coins)</label>
@@ -573,6 +588,10 @@ function emailFor(username) { return username + "@illegalo.local"; }
 const ALLOWED_USERS = ["maxipribil"]; // nur maxipribil kommt ins Dev Panel, henrikstelzner nicht
 const SESSION_MS = 30*60*1000, MAX_ATTEMPTS = 5, LOCKOUT_MS = 30*1000;
 let attempts = 0, lockedUntil = 0, sessionTimer = null, sessionExpiry = 0;
+// MAP FEATURE (Verbesserungsvorschlag Punkt 3): eskalierendes Lockout — jede
+// weitere Sperre in der gleichen Session wird länger (30s -> 60s -> 120s -> ...)
+// statt immer bei 30s zu bleiben, erschwert automatisiertes Durchprobieren zusätzlich.
+let lockoutCount = 0;
 
 window.doLogin = async function() {
   const now  = Date.now();
@@ -585,7 +604,7 @@ window.doLogin = async function() {
   if (!user || !pass) { err.textContent="Bitte alles ausfüllen!"; err.classList.add("show"); return; }
 
   if (!ALLOWED_USERS.includes(user)) {
-    handleFailedLogin(now, err, lock);
+    handleFailedLogin(now, err, lock, user);
     document.getElementById("l-pass").value = "";
     return;
   }
@@ -595,7 +614,7 @@ window.doLogin = async function() {
     await signInWithEmailAndPassword(EARLY_AUTH, emailFor(user), pass);
   } catch (e) {
     btn.disabled = false; btn.textContent = "Einloggen →";
-    handleFailedLogin(now, err, lock);
+    handleFailedLogin(now, err, lock, user);
     document.getElementById("l-pass").value = "";
     return;
   }
@@ -611,14 +630,20 @@ window.doLogin = async function() {
   initFirebase();
 };
 
-function handleFailedLogin(now, err, lock) {
+function handleFailedLogin(now, err, lock, attemptedUser) {
   attempts++;
   if (attempts >= MAX_ATTEMPTS) {
-    lockedUntil = now + LOCKOUT_MS;
+    lockoutCount++;
+    const escalatedLockoutMs = LOCKOUT_MS * Math.pow(2, lockoutCount - 1); // 30s, 60s, 120s, ...
+    lockedUntil = now + escalatedLockoutMs;
     err.classList.remove("show"); lock.classList.add("show");
-    let secs = LOCKOUT_MS/1000;
+    let secs = escalatedLockoutMs/1000;
     lock.textContent = `Zu viele Versuche! Warte ${secs}s…`;
     const iv = setInterval(()=>{ secs--; if(secs<=0){clearInterval(iv);attempts=0;lock.classList.remove("show");lock.textContent="";} else lock.textContent=`Zu viele Versuche! Warte ${secs}s…`; },1000);
+    // MAP FEATURE (Verbesserungsvorschlag Punkt 2): Lockout wird jetzt geloggt,
+    // damit Staff im Nachhinein sieht dass wer wiederholt gescheitert is, nicht
+    // nur erfolgreiche Logins waren bisher nachvollziehbar.
+    addDoc(collection(db,"errorLog"), { page: "dev-login", message: `Login-Sperre ausgelöst (Versuch: "${attemptedUser||"?"}", Sperre #${lockoutCount}, ${escalatedLockoutMs/1000}s)` }).catch(()=>{});
   } else {
     err.textContent = `Falscher Username oder Passwort. (${attempts}/${MAX_ATTEMPTS} Versuche)`;
     err.classList.add("show");
@@ -994,6 +1019,80 @@ async function loadSpinPrice() {
   }
 }
 loadSpinPrice();
+
+// MAP FEATURE: Illegalo-Express-Preis im Dev Panel einstellbar — läuft über
+// Firestore (siteStatus/main), weil das ne Shop-Funktion is, nicht Gamecenter.
+async function loadExpressPrice() {
+  const input = document.getElementById("express-price-input");
+  const statusEl = document.getElementById("express-price-status");
+  try {
+    const snap = await getDoc(statusDocRef);
+    input.value = snap.exists() ? (snap.data().expressPrice ?? 1) : 1;
+  } catch (e) {
+    statusEl.textContent = "Konnte Preis nicht laden.";
+    console.error("[dev] loadExpressPrice failed:", e);
+  }
+}
+// MAP FEATURE (Verbesserungsvorschlag Punkt 7): Health-Check-Dashboard — auf
+// einen Blick sehen ob Firestore + Supabase laufen, statt einzeln nachzuschauen.
+async function runHealthCheck() {
+  const fsEl = document.getElementById("health-firestore").querySelector("span:last-child");
+  const sbEl = document.getElementById("health-supabase").querySelector("span:last-child");
+  const errEl = document.getElementById("health-errors24h").querySelector("span:last-child");
+
+  fsEl.textContent = "Prüfe…"; sbEl.textContent = "Prüfe…"; errEl.textContent = "Prüfe…";
+
+  // Firestore: einfacher Read-Test auf ein bekanntes Doc
+  try {
+    const start = Date.now();
+    await getDoc(statusDocRef);
+    fsEl.textContent = `✅ OK (${Date.now()-start}ms)`;
+    fsEl.style.color = "var(--gr, #22c55e)";
+  } catch (e) {
+    fsEl.textContent = "❌ Fehler"; fsEl.style.color = "var(--re, #ef4444)";
+  }
+
+  // Supabase: einfacher Read-Test
+  try {
+    const start = Date.now();
+    const { error } = await supabase.from("gc_config").select("id").limit(1);
+    if (error) throw error;
+    sbEl.textContent = `✅ OK (${Date.now()-start}ms)`;
+    sbEl.style.color = "var(--gr, #22c55e)";
+  } catch (e) {
+    sbEl.textContent = "❌ Fehler"; sbEl.style.color = "var(--re, #ef4444)";
+  }
+
+  // Fehler-Log der letzten 24h zählen
+  try {
+    const dayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
+    const snap = await getDocs(collection(db, "errorLog"));
+    const recentCount = snap.docs.filter(d => (d.data().at || "") >= dayAgo).length;
+    errEl.textContent = `${recentCount} (24h) / ${snap.size} gesamt`;
+  } catch (e) {
+    errEl.textContent = "❌ Fehler";
+  }
+}
+document.getElementById("health-refresh-btn")?.addEventListener("click", runHealthCheck);
+runHealthCheck();
+
+loadExpressPrice();
+
+document.getElementById("express-price-submit-btn")?.addEventListener("click", async () => {
+  const input = document.getElementById("express-price-input");
+  const statusEl = document.getElementById("express-price-status");
+  const newPrice = parseFloat(input.value);
+  if (isNaN(newPrice) || newPrice < 0 || newPrice > 20) { statusEl.textContent = "Ungültiger Preis (0-20€)."; return; }
+  try {
+    await setDoc(statusDocRef, { expressPrice: newPrice }, { merge: true });
+    statusEl.textContent = `✅ Gespeichert: ${newPrice}€`;
+    showToast(`Express-Preis auf ${newPrice}€ gesetzt 🚀`);
+  } catch (e) {
+    statusEl.textContent = "❌ Fehler beim Speichern.";
+    showToast("Preis konnte nicht gespeichert werden — bist du als Staff eingeloggt?", true);
+    console.error("[dev] saveExpressPrice failed:", e);
+  }
+});
 
 document.getElementById("spin-price-submit-btn")?.addEventListener("click", async () => {
   const input = document.getElementById("spin-price-input");
