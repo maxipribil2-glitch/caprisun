@@ -74,6 +74,10 @@ const GAMES = [
   { id: "pool", name: "Pool-Duell (1v1)" },
   { id: "towerdefense", name: "Tower-Defense-Duell (1v1)" },
   { id: "wordchain", name: "Wortkette (1v1)" },
+  { id: "mancala", name: "Mancala (1v1)" },
+  { id: "uno", name: "UNO-Light (1v1)" },
+  { id: "uno-light", name: "UNO-Light (1v1)" },
+  { id: "uno", name: "UNO Light (1v1)" },
   { id: "pool", name: "Billard-Duell (1v1)" },
   { id: "guesswho", name: "Errate-Wer (1v1)" }
 ];
@@ -102,6 +106,9 @@ const ARCADE_GAMES = [
   { id: "stroop", name: "Farb-Reflex", icon: "🌈", page: "stroop.html" },
   { id: "balloonpop", name: "Balloon Pop", icon: "🎈", page: "balloonpop.html" },
   { id: "wordsearch", name: "Wortsuche", icon: "🔤", page: "wordsearch.html" },
+  { id: "trivia", name: "Trivia-Marathon", icon: "🧠", page: "trivia.html" },
+  { id: "trivia-marathon", name: "Trivia-Marathon", icon: "🧠", page: "trivia-marathon.html" },
+  { id: "trivia", name: "Trivia-Marathon", icon: "🧠", page: "trivia.html" },
 ];
 
 const SNAKEIO_GRID = 20;
@@ -148,6 +155,10 @@ function gamePage(gameId) {
   if (gameId === "pool") return "pool.html";
   if (gameId === "towerdefense") return "towerdefense.html";
   if (gameId === "wordchain") return "wordchain.html";
+  if (gameId === "mancala") return "mancala.html";
+  if (gameId === "uno") return "uno.html";
+  if (gameId === "uno-light") return "uno-light.html";
+  if (gameId === "uno") return "uno.html";
   if (gameId === "guesswho") return "guesswho.html";
   return "game.html";
 }
@@ -542,6 +553,28 @@ function renderDailyChallenge() {
 renderDailyChallenge();
 
 let myUid = null;
+
+// MAP FEATURE (Verbesserungsvorschlag Punkt 4): Inaktivitäts-Timeout — vorher
+// blieben Gamecenter-Accounts unbegrenzt eingeloggt. Nach 2h ohne jede
+// Interaktion (Maus/Touch/Tastatur) wird automatisch ausgeloggt, falls mal wer
+// nen fremden Rechner nutzt und vergisst sich abzumelden. Deutlich großzügiger
+// als das Dev Panel (30 Min), weil normale Spieler-Sessions länger dauern können.
+const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+let inactivityTimer = null;
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(async () => {
+    if (myUid) {
+      showToast("⏰ Automatisch ausgeloggt wegen Inaktivität (2h).");
+      try { await signOut(auth); } catch (e) {}
+      setTimeout(() => { window.location.href = "gc-index.html"; }, 1500);
+    }
+  }, INACTIVITY_TIMEOUT_MS);
+}
+["mousemove","keydown","touchstart","click","scroll"].forEach(evt => {
+  document.addEventListener(evt, resetInactivityTimer, { passive: true });
+});
+resetInactivityTimer();
 let myName = null;
 let redirected = false;
 const declinedSeen = new Set();

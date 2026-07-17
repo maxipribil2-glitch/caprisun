@@ -282,6 +282,7 @@ body.shop-locked > .page {
       </div>
     </div>
   </div>
+  <div id="price-breakdown" style="font-size:.8rem;color:var(--mu);margin-bottom:10px;padding:10px;background:var(--s2,#1a1c26);border-radius:8px;"></div>
   <button class="post-btn" id="post-btn" onclick="postOrder()">📤 Bestellung jetzt posten</button>
 </div>
 
@@ -601,7 +602,7 @@ function evaluateSiteStatus() {
   document.getElementById("maintenance-screen").classList.toggle("show", isOff);
   if (isOff) {
     const reason = manualOff ? data.reason : (scheduleOff ? "geschlossen" : null);
-    window.applyMaintenanceReason && window.applyMaintenanceReason(reason, {
+    window.__supportEmail = lastStatusData.supportEmail; window.applyMaintenanceReason && window.applyMaintenanceReason(reason, {
       icon: "🚧",
       title: "Diese Seite ist gerade <span style=\"color:#6366f1\">offline</span>",
       sub: "Der Admin hat den Shop kurz ausgeschaltet. Spiel solang ne Runde Dino! 🦖"
@@ -777,14 +778,25 @@ function renderItems() {
       </div>
     </div>`).join("");
   document.getElementById("total-display").textContent = fmt(calcTotal());
+  renderPriceBreakdown();
 }
 
 window.toggleEmoji     = i => { epOpen=epOpen===i?null:i; renderItems(); };
 window.changeQty       = (i, delta) => { items[i].qty = Math.max(1, (parseInt(items[i].qty)||1) + delta); renderItems(); };
 window.pickEmoji       = (i,em) => { items[i].emoji=em; epOpen=null; renderItems(); };
 window.setItem         = (i,k,v) => { items[i][k]=v; renderItems(); };
-window.setItemNoRender = (i,k,v) => { items[i][k]=v; document.getElementById("total-display").textContent=fmt(calcTotal()); };
-window.updateTotal     = () => { document.getElementById("total-display").textContent=fmt(calcTotal()); };
+function renderPriceBreakdown() {
+  const el = document.getElementById("price-breakdown");
+  if (!el) return;
+  const itemsTotal = items.reduce((s,it)=>s+(parseFloat(String(it.price).replace(",","."))||0)*(parseInt(it.qty)||1),0);
+  let html = `Artikel: ${fmt(itemsTotal)}`;
+  if (expressSelected) html += ` + Express: ${fmt(getExpressPrice())}`;
+  if (tipAmount > 0) html += ` + Trinkgeld: ${fmt(tipAmount)}`;
+  html += ` = <strong style="color:var(--am,#f59e0b)">${fmt(calcTotal())}</strong>`;
+  el.innerHTML = html;
+}
+window.setItemNoRender = (i,k,v) => { items[i][k]=v; document.getElementById("total-display").textContent=fmt(calcTotal()); renderPriceBreakdown(); };
+window.updateTotal     = () => { document.getElementById("total-display").textContent=fmt(calcTotal()); renderPriceBreakdown(); };
 window.removeItem      = i => { items.splice(i,1); renderItems(); };
 window.addItem         = () => { items.push({name:"",emoji:"📦",qty:1,price:""}); renderItems(); };
 

@@ -259,7 +259,7 @@ function evaluateSiteStatus() {
   document.getElementById("login-screen").style.display = isOff ? "none" : "";
   if (isOff) {
     const reason = manualOff ? data.reason : (scheduleOff ? "geschlossen" : null);
-    window.applyMaintenanceReason && window.applyMaintenanceReason(reason, {
+    window.__supportEmail = lastStatusData.supportEmail; window.applyMaintenanceReason && window.applyMaintenanceReason(reason, {
       icon: "🚧",
       title: "Lieferanten-Seite ist gerade <span style=\"color:#10b981\">offline</span>",
       sub: "Wurde kurz ausgeschaltet. Spiel solang ne Runde Dino! 🦖"

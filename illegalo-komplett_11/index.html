@@ -168,7 +168,7 @@ function evaluateSiteStatus() {
     // wirklich in siteStatus.reason stand — die Homepage hätte beim Kill Switch
     // also nie den speziellen 404-Look gezeigt, nur die generische "offline"-
     // Meldung. Jetzt wird der ECHTE Grund durchgereicht.
-    window.applyMaintenanceReason && window.applyMaintenanceReason(lastStatusData.reason, {
+    window.__supportEmail = lastStatusData.supportEmail; window.applyMaintenanceReason && window.applyMaintenanceReason(lastStatusData.reason, {
       icon: "🚧",
       title: "Diese Seite ist gerade <span style=\"color:#6366f1\">offline</span>",
       sub: "Schau später nochmal vorbei. Spiel solang ne Runde Dino! 🦖"

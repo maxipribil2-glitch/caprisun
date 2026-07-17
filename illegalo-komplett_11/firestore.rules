@@ -251,6 +251,9 @@ service cloud.firestore {
                        || (request.resource.data.expressPrice is number
                            && request.resource.data.expressPrice >= 0
                            && request.resource.data.expressPrice <= 20))
+                   && (!('supportEmail' in request.resource.data)
+                       || (request.resource.data.supportEmail is string
+                           && request.resource.data.supportEmail.size() < 100))
                    && (!('reason' in request.resource.data)
                        || request.resource.data.reason == null
                        || request.resource.data.reason in ['ferien','krank','geschlossen','mittagspause','killswitch']);
@@ -326,7 +329,7 @@ service cloud.firestore {
       allow create: if !killSwitchActive()
         && request.auth != null
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.game in ['snake', 'breakout', '2048', 'flappy', 'minesweeper', 'memory', 'stacktower', 'anagramm', 'coinrush', 'wordle', 'simon', 'typing', 'sudoku', 'pixelart', 'slithersolo', 'wham', 'bubbleshooter', 'stroop', 'balloonpop', 'wordsearch']
+        && request.resource.data.game in ['snake', 'breakout', '2048', 'flappy', 'minesweeper', 'memory', 'stacktower', 'anagramm', 'coinrush', 'wordle', 'simon', 'typing', 'sudoku', 'pixelart', 'slithersolo', 'wham', 'bubbleshooter', 'stroop', 'balloonpop', 'wordsearch', 'trivia']
         && request.resource.data.score is number
         && request.resource.data.score >= 0
         && request.resource.data.score < 100000;
@@ -339,7 +342,7 @@ service cloud.firestore {
       allow create: if !killSwitchActive()
         && request.auth != null
         && request.auth.uid in request.resource.data.players
-        && request.resource.data.game in ['tictactoe','snakeio','katapult','connect4','pong','reaction','battleship','nim','quiz','chess','airhockey','bomberman','artillery','rps','checkers','guesswho','pool','towerdefense','wordchain'];
+        && request.resource.data.game in ['tictactoe','snakeio','katapult','connect4','pong','reaction','battleship','nim','quiz','chess','airhockey','bomberman','artillery','rps','checkers','guesswho','pool','towerdefense','wordchain','mancala','uno'];
       allow update, delete: if false;
     }
 

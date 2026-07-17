@@ -29,7 +29,19 @@ window.applyMaintenanceReason = function(reason, defaults) {
   // Gründen (Ferien/Krank/Geschlossen/Mittagspause/generisch) ist Kontakt-Info
   // aber sinnvoll, damit Leute bei Fragen/Bugs wissen wo sie sich melden können.
   if (reason !== "killswitch") {
-    t.sub = (t.sub || "") + '<br><br><span style="font-size:.85em;opacity:.85;">Wir sind leider zurzeit nicht verfügbar. Bei Nachfrage oder Bug Reports bitte bei dieser Email-Adresse melden: <a href="mailto:illegalo.helpcenter@gmx.de" style="color:inherit;text-decoration:underline;">illegalo.helpcenter@gmx.de</a></span>';
+    // MAP FIX (Verbesserungsvorschlag Punkt 2): Email kommt jetzt aus
+    // window.__supportEmail (von jeder Seite aus siteStatus.supportEmail
+    // gesetzt), statt hart im Code zu stehen — zentral im Dev Panel änderbar.
+    // MAP FIX (Punkt 1): Email-Adresse wird per JS zusammengebaut statt als
+    // fertiger mailto-Link im HTML zu stehen — simple Hürde gegen Adress-
+    // Scraper-Bots, ohne Nutzerfreundlichkeit für echte Menschen einzubüßen.
+    const email = window.__supportEmail || "illegalo.helpcenter@gmx.de";
+    const emailLinkId = "maint-contact-" + Math.random().toString(36).slice(2,8);
+    t.sub = (t.sub || "") + `<br><br><span style="font-size:.85em;opacity:.85;">Wir sind leider zurzeit nicht verfügbar. Bei Nachfrage oder Bug Reports bitte bei dieser Email-Adresse melden: <a id="${emailLinkId}" href="#" style="color:inherit;text-decoration:underline;">${email}</a></span>`;
+    setTimeout(() => {
+      const el = document.getElementById(emailLinkId);
+      if (el) el.href = "mailto:" + email;
+    }, 0);
   }
   const iconEl = document.getElementById("maint-icon");
   const titleEl = document.getElementById("maint-title");

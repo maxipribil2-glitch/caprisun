@@ -359,6 +359,13 @@ button,input{font-family:'Inter',sans-serif;}
           <button id="health-refresh-btn" style="margin-top:4px;">Neu prüfen 🔄</button>
         </div>
 
+        <div class="storage-hdr"><h3>📧 Support-Email</h3><span class="storage-count" id="support-email-status"></span></div>
+        <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
+          <label for="support-email-input" style="font-size:12px;">Kontakt-Email auf Wartungsseiten</label>
+          <input id="support-email-input" type="email" placeholder="z.B. illegalo.helpcenter@gmx.de" style="padding:6px;">
+          <button id="support-email-submit-btn" style="margin-top:4px;">Email speichern ✅</button>
+        </div>
+
         <div class="storage-hdr"><h3>🚀 Illegalo-Express-Preis</h3><span class="storage-count" id="express-price-status"></span></div>
         <div class="storage-box" style="display:flex;flex-direction:column;gap:8px;padding:12px;">
           <label for="express-price-input" style="font-size:12px;">Aufpreis für Express (in €)</label>
@@ -1087,6 +1094,37 @@ runHealthCheck();
 setInterval(runHealthCheck, 2*60*1000);
 
 loadExpressPrice();
+
+// MAP FEATURE (Verbesserungsvorschlag Punkt 2): Support-Email zentral im Dev
+// Panel änderbar statt hart im Code verdrahtet.
+async function loadSupportEmail() {
+  const input = document.getElementById("support-email-input");
+  const statusEl = document.getElementById("support-email-status");
+  try {
+    const snap = await getDoc(statusDocRef);
+    input.value = snap.exists() ? (snap.data().supportEmail ?? "illegalo.helpcenter@gmx.de") : "illegalo.helpcenter@gmx.de";
+  } catch (e) {
+    statusEl.textContent = "Konnte Email nicht laden.";
+    console.error("[dev] loadSupportEmail failed:", e);
+  }
+}
+loadSupportEmail();
+
+document.getElementById("support-email-submit-btn")?.addEventListener("click", async () => {
+  const input = document.getElementById("support-email-input");
+  const statusEl = document.getElementById("support-email-status");
+  const newEmail = input.value.trim();
+  if (!newEmail || !newEmail.includes("@") || newEmail.length > 99) { statusEl.textContent = "Ungültige Email."; return; }
+  try {
+    await setDoc(statusDocRef, { supportEmail: newEmail }, { merge: true });
+    statusEl.textContent = `✅ Gespeichert`;
+    showToast(`Support-Email auf ${newEmail} gesetzt 📧`);
+  } catch (e) {
+    statusEl.textContent = "❌ Fehler beim Speichern.";
+    showToast("Email konnte nicht gespeichert werden — bist du als Staff eingeloggt?", true);
+    console.error("[dev] saveSupportEmail failed:", e);
+  }
+});
 
 document.getElementById("express-price-submit-btn")?.addEventListener("click", async () => {
   const input = document.getElementById("express-price-input");

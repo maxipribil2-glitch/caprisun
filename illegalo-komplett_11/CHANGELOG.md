@@ -3,6 +3,31 @@
 MAP — Übersicht der größeren Änderungen, damit man beim nächsten Mal nicht den
 kompletten Chat-Verlauf durchsuchen muss. Chronologisch, neueste zuerst.
 
+## 📧 Kontakt & Support (neueste Runde)
+- Kontakt-Email auf allen Wartungsscreens (Ferien/Krank/Geschlossen/
+  Mittagspause) — NICHT beim Kill Switch (soll ja wie "existiert nicht" wirken)
+- Email jetzt zentral im Dev Panel änderbar (`siteStatus.supportEmail`),
+  JS-generierter Link statt fertigem mailto im HTML (leichte Spam-Bot-Hürde)
+- Preis-Aufschlüsselung im Shop-Checkout: "Artikel: X + Express: Y +
+  Trinkgeld: Z = Gesamt" statt nur der Endsumme
+- Inaktivitäts-Timeout im Gamecenter (2h ohne Interaktion → Auto-Logout,
+  Lobby-Seite)
+- `staff_uids_log`-Trigger erfasst jetzt auch UPDATE (vorher nur INSERT/DELETE)
+
+## 🧠🃏 Trivia-Marathon + UNO-Light (neue Games)
+- **Trivia-Marathon** (Solo): Multiple-Choice-Quiz mit steigendem Schwierigkeitsgrad
+  (easy→medium→hard je nach Streak), 3 Leben, Streak-basierte Coin-Vergabe
+- **UNO-Light** (1v1): vereinfachtes UNO nur mit Zahlkarten (0-9, 4 Farben,
+  keine Spezial-/Wild-Karten), Farbe-oder-Zahl-Match, faires Zufalls-Rematch
+- **Wichtiger Fund beim Verdrahten:** Firestore Rules hatten schon `'trivia'`/
+  `'uno'` in der Whitelist (von nem unvollständigen früheren Versuch) — Mismatch
+  zu den tatsächlichen Game-IDs (`trivia-marathon`/`uno-light`), hätte Score-
+  Submits blockiert. Gefixt.
+
+## 🎲 Mancala (neues Game)
+- Vollständiges 1v1-Mancala: 6 Mulden + Store pro Spieler, Capture-Regel,
+  Extra-Zug bei eigenem Store, faires Zufalls-Rematch
+
 ## 🚀 Illegalo Express (Shop)
 - Neuer Button im Checkout: "Illegalo Express" — Aufpreis für bevorzugte
   Lieferreihenfolge (warm zuletzt, kalt zuerst)
