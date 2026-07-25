@@ -48,7 +48,7 @@ window.toggleGcTheme = function() {
 
   <div class="panel">
     <h2>🏆 Top 5</h2>
-    <ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="leaderboard"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 
   <div class="shop-ad" id="shop-ad"></div>
@@ -60,6 +60,7 @@ window.toggleGcTheme = function() {
 <div class="version-tag">v1.5
 <style>.hidden{display:none;}</style>
 <script type="module" src="maintenance.js"></script>
+<script type="module" src="scrollReveal.js"></script>
 <script type="module" src="snake.js"></script>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});

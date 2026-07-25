@@ -7,6 +7,7 @@ import { app } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { renderShopAd } from "./ads.js";
 import { sfx } from "./sfx.js";
+import { fireConfetti } from "./confetti.js";
 import { spinSlotMachine, useBonusSpin, buyBonusSpin, getBalance } from "./gamocoin.js";
 import { supabase } from "./supabase-config.js";
 
@@ -107,6 +108,7 @@ function renderResult(res) {
   if (res.isJackpot) {
     statusEl.innerHTML = `🎉🎉🎉 JACKPOT! 🎉🎉🎉<br><strong>Keine Lieferkosten für deine nächste Bestellung!</strong>`;
     sfx.win ? sfx.win() : null;
+    fireConfetti();
   } else if (res.coinsWon >= 2000) {
     statusEl.textContent = `🔥 3 Gleiche! +${res.coinsWon} 🪙`;
     sfx.win ? sfx.win() : null;

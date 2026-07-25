@@ -41,12 +41,12 @@ window.toggleGcTheme = function() {
   <div class="panel">
     <h2>⚡ ELO-Rangliste</h2>
     <div style="font-size:13px;color:var(--mu);margin-bottom:10px;">Echte Wertung — Siege gegen starke Gegner geben mehr Punkte. Start: 1000 ELO.</div>
-    <ul class="leaderboard" id="elo-list"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="elo-list"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 
   <div class="panel">
     <h2>🏆 Gesamtwertung</h2>
-    <ul class="leaderboard" id="overall-list"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="overall-list"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 
   <div class="panel">
@@ -61,7 +61,7 @@ window.toggleGcTheme = function() {
 
   <div class="panel">
     <h2>📜 Letzte Matches</h2>
-    <ul class="leaderboard" id="recent-list"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="recent-list"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 
 </div>
@@ -69,6 +69,7 @@ window.toggleGcTheme = function() {
 <div class="map-sig">MAP</div>
 <div class="version-tag">v1.5
 <script type="module" src="maintenance.js"></script>
+<script type="module" src="scrollReveal.js"></script>
 <script type="module" src="stats.js"></script>
 </body>
 </html>

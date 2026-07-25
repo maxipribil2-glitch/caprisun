@@ -51,7 +51,7 @@ window.toggleGcTheme = function() {
       <button class="lb-filter-btn" data-filter="week" style="padding:4px 10px;font-size:10px;">Woche</button>
       <button class="lb-filter-btn" data-filter="today" style="padding:4px 10px;font-size:10px;">Heute</button>
     </div>
-    <ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="leaderboard"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 
   <div class="shop-ad" id="shop-ad"></div>
@@ -67,6 +67,7 @@ window.toggleGcTheme = function() {
 .lb-filter-btn.on{background:var(--in);border-color:var(--in);color:#1a0a14;}
 </style>
 <script type="module" src="maintenance.js"></script>
+<script type="module" src="scrollReveal.js"></script>
 <script type="module" src="breakout.js"></script>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});

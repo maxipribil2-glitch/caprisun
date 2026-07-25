@@ -1,5 +1,6 @@
 // MAP — lobby logic: who's online (Realtime Database presence, instant onDisconnect) + invites (Firestore)
 import { app } from "./firebase-config.js";
+import { initScrollReveal } from "./scrollReveal.js";
 import { renderShopAd } from "./ads.js";
 import { getBalance, formatCoins, claimDailyBonus, claimChallengeReward, ensureSupabaseUserExists } from "./gamocoin.js";
 import { toggleLang, applyLang } from "./i18n.js";
@@ -75,9 +76,7 @@ const GAMES = [
   { id: "towerdefense", name: "Tower-Defense-Duell (1v1)" },
   { id: "wordchain", name: "Wortkette (1v1)" },
   { id: "mancala", name: "Mancala (1v1)" },
-  { id: "uno", name: "UNO-Light (1v1)" },
   { id: "uno-light", name: "UNO-Light (1v1)" },
-  { id: "uno", name: "UNO Light (1v1)" },
   { id: "pool", name: "Billard-Duell (1v1)" },
   { id: "guesswho", name: "Errate-Wer (1v1)" }
 ];
@@ -106,9 +105,7 @@ const ARCADE_GAMES = [
   { id: "stroop", name: "Farb-Reflex", icon: "🌈", page: "stroop.html" },
   { id: "balloonpop", name: "Balloon Pop", icon: "🎈", page: "balloonpop.html" },
   { id: "wordsearch", name: "Wortsuche", icon: "🔤", page: "wordsearch.html" },
-  { id: "trivia", name: "Trivia-Marathon", icon: "🧠", page: "trivia.html" },
   { id: "trivia-marathon", name: "Trivia-Marathon", icon: "🧠", page: "trivia-marathon.html" },
-  { id: "trivia", name: "Trivia-Marathon", icon: "🧠", page: "trivia.html" },
 ];
 
 const SNAKEIO_GRID = 20;
@@ -156,9 +153,7 @@ function gamePage(gameId) {
   if (gameId === "towerdefense") return "towerdefense.html";
   if (gameId === "wordchain") return "wordchain.html";
   if (gameId === "mancala") return "mancala.html";
-  if (gameId === "uno") return "uno.html";
   if (gameId === "uno-light") return "uno-light.html";
-  if (gameId === "uno") return "uno.html";
   if (gameId === "guesswho") return "guesswho.html";
   return "game.html";
 }
@@ -326,6 +321,10 @@ function renderArcadeGrid() {
     ).join("");
   }
   arcadeGridEl.innerHTML = html;
+  // MAP FEATURE: neu gerenderte Kacheln beobachten lassen (bei Filter-Wechsel
+  // z.B. wird das Grid komplett neu aufgebaut, alte Observer greifen dann nich
+  // mehr für die neuen DOM-Elemente).
+  initScrollReveal(arcadeGridEl, ".arcade-card");
   // "1v1"-Filter zeigt hier nur einen Hinweis, weil 1v1-Games über den Game-Select
   // (Invite-System) laufen, nicht über direkte Links wie die Solo-Arcade-Karten.
   if (arcadeFilter === "1v1") {

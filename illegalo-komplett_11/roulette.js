@@ -454,6 +454,15 @@ function handleTableUpdate(data) {
     if (phaseLabel) phaseLabel.textContent = "🌀 BALL ROLLT…";
     if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = "🌀 LÄUFT…"; }
     if (lastPhase !== "spinning" && data.result != null) {
+      // MAP FIX (Wetten-Race, Kernbug): commitBets() lief vorher NUR beim Client der
+      // die Phasen-Transaction gewann (advancePhase) bzw. beim Client der manuell auf
+      // "Drehen" klickte (requestSpin) — alle ANDEREN Mitspieler am Tisch, die ebenfalls
+      // Wetten platziert hatten, haben nie ihre eigenen Coins abgezogen/ausgezahlt
+      // bekommen, weil ihr Client den Transaction-Race schlicht nie gewinnen konnte.
+      // Fix: JEDER Client committed jetzt seine eigenen localBets hier zentral, sobald
+      // er über den Snapshot-Listener vom (autoritativen) Ergebnis erfährt — das
+      // roundKey (result + gemeinsames phaseEnds) verhindert Doppel-Commits.
+      commitBets(data.result, "round:" + (data.phaseEnds || Date.now()));
       animateSpin(data.result, () => showResult(data));
     }
   } else if (currentPhase === "result") {
@@ -484,7 +493,9 @@ async function advancePhase(data) {
   const now = Date.now();
   if (data.phase === "betting") {
     const result = Math.floor(Math.random() * (variant==="us"?38:37));
-    let wonTransaction = false;
+    // MAP FIX: commitBets() lief hier vorher nur beim Transaction-Gewinner — läuft
+    // jetzt zentral in handleTableUpdate() für JEDEN Client via Snapshot-Listener,
+    // sobald der neue "result" ankommt. Hier nur noch die Phase weiterschalten.
     try {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(tableRef);
@@ -498,12 +509,8 @@ async function advancePhase(data) {
           history: current.history || [],
           variant
         });
-        wonTransaction = true;
       });
     } catch (e) {}
-    if (wonTransaction) {
-      await commitBets(result, "round:" + (data.phaseEnds || now));
-    }
   } else if (data.phase === "spinning") {
     try {
       await runTransaction(db, async (tx) => {
@@ -653,37 +660,30 @@ function renderHistory(hist) {
 // MAP FIX: schreibt "players" nicht mehr platt auf {} — das hat vorher die Wetten
 // von JEDEM anderen Spieler am Tisch gelöscht, bevor die überhaupt committen konnten.
 // Jetzt wird nur phase/result/phaseEnds geändert, "players" bleibt wie's war.
-// MAP FIX (Wiederholungsbug — Wetten-Race, gleiche Ursache wie in advancePhase()):
-// hier stand vorher ein ungeschützter getDoc()+updateDoc() statt runTransaction — wenn
-// 2 Clients fast gleichzeitig auf "Jetzt drehen" klickten, generierte JEDER seine eigene
-// "result"-Zahl und der letzte Schreibzugriff gewann (Ergebnis konnte sich nach
-// Animationsstart nochmal ändern). advancePhase() wurde damals schon auf Transaction
-// umgestellt, requestSpin() aber nicht — jetzt gleiche Transaction-Logik hier auch,
-// nur der erste Call gewinnt.
 window.requestSpin = async () => {
   if (currentPhase !== "betting") return;
   const totalBetAmount = Object.values(localBets).reduce((s,b)=>s+b.amount,0);
   if (!totalBetAmount) { showToast("Erst eine Wette platzieren!", true); return; }
+  // MAP FIX (Wiederholungsbug): direkter updateDoc() ohne Transaction-Schutz —
+  // wenn 2 Spieler fast gleichzeitig auf "Drehen" klickten, konnte die Phase
+  // doppelt weitergeschaltet werden (Race). Jetzt über runTransaction wie
+  // advancePhase(), inkl. Phase-Check direkt vorm Schreiben. commitBets() läuft
+  // nicht mehr direkt hier, sondern zentral in handleTableUpdate() für jeden Client.
   const result = Math.floor(Math.random() * (variant==="us"?38:37));
   const now = Date.now();
-  let wonTransaction = false;
   try {
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(tableRef);
       const current = snap.exists() ? snap.data() : {};
-      if (current.phase !== "betting") return; // ein anderer Client war schneller
+      if (current.phase !== "betting") return;
       tx.update(tableRef, {
         phase: "spinning",
         phaseEnds: now + SPIN_SECS*1000,
         result,
         variant
       });
-      wonTransaction = true;
     });
   } catch (e) {}
-  if (wonTransaction) {
-    await commitBets(result, "spin:" + now);
-  }
 };
 
 // ── Sound-Effekte (via Web Audio, kein External Dep nötig) ──

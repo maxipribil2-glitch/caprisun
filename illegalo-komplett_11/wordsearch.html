@@ -31,7 +31,7 @@ window.toggleGcTheme = function() {
     <button id="restart-btn" class="hidden">Nochmal</button>
     <div class="hint">10x10-Grid, 8 Wörter versteckt. Zeit läuft — je mehr gefunden desto mehr Coins!</div>
   </div>
-  <div class="panel"><h2>🏆 Top 5</h2><ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul></div>
+  <div class="panel"><h2>🏆 Top 5</h2><ul class="leaderboard" id="leaderboard"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul></div>
   <div class="shop-ad" id="shop-ad"></div>
 </div>
 <div class="map-sig">MAP</div>
@@ -45,6 +45,7 @@ window.toggleGcTheme = function() {
 .ws-word.done{background:var(--gr);color:#0a1408;text-decoration:line-through;border-color:var(--gr);}
 </style>
 <script type="module" src="maintenance.js"></script>
+<script type="module" src="scrollReveal.js"></script>
 <script type="module" src="coinBadge.js"></script>
 <script type="module" src="wordsearch.js"></script>
 </body>

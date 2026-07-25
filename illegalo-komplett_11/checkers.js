@@ -7,6 +7,7 @@ import { renderShopAd } from "./ads.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
+import { fireConfetti } from "./confetti.js";
 import { awardGameReward } from "./gamocoin.js";
 
 const auth = getAuth(app), db = getFirestore(app);
@@ -27,7 +28,7 @@ function startingBoard() {
   return board;
 }
 
-let myUid, roomRef, currentRoom, selected = null, legalTargets = [];
+let myUid, roomRef, currentRoom, selected = null, legalTargets = [], hasCelebrated = false;
 
 renderShopAd("shop-ad");
 
@@ -101,6 +102,7 @@ function render() {
   if (room.status === "finished") {
     rematchBtn.classList.remove("hidden");
     statusEl.textContent = isSpectator ? `${room.playerNames[room.winner]||"Jemand"} hat gewonnen!` : (room.winner === myUid ? "DU HAST GEWONNEN 🔥" : "Verloren, GG.");
+    if (!isSpectator && room.winner === myUid && !hasCelebrated) { hasCelebrated = true; fireConfetti(); }
     renderBoard(true);
     return;
   }

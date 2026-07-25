@@ -3,6 +3,20 @@
 MAP — Übersicht der größeren Änderungen, damit man beim nächsten Mal nicht den
 kompletten Chat-Verlauf durchsuchen muss. Chronologisch, neueste zuerst.
 
+## ✨ Krasse Animationen & Effekte (neueste Runde)
+- Scroll-Reveal auf ALLEN 55 Seiten (Shop/Admin/Lieferant/Home/Dev/Gamecenter):
+  Kacheln/Panels schweben mit 3D-Tilt + Staffelung rein beim Scrollen
+  (`scrollReveal.js`, IntersectionObserver)
+- Confetti-Effekt bei Siegen (Chess/Checkers/Mancala/UNO) + Slot-Jackpot
+  (`confetti.js`, reines Canvas, kein Library-Overhead)
+- Globale Mikro-Interaktionen: Seiten-Fade-In beim Laden, Button-Hover-Lift +
+  Press-Feedback, Panel-/Karten-Hover-Glow, sanfter Input-Fokus-Ring
+- Coin-Badge pulsiert kurz auf bei Kontostand-Änderung
+- Shimmer-Loading-Effekt statt reinem "Lädt..."-Text (25 Leaderboards)
+- Seiten-Übergänge fadet kurz aus statt hart zu springen
+- Hover-Effekte auf Touch-Geräten deaktiviert (Performance, kein echtes Hover
+  auf Handys) — alles respektiert `prefers-reduced-motion`
+
 ## 📧 Kontakt & Support (neueste Runde)
 - Kontakt-Email auf allen Wartungsscreens (Ferien/Krank/Geschlossen/
   Mittagspause) — NICHT beim Kill Switch (soll ja wie "existiert nicht" wirken)

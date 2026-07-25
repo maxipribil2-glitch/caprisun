@@ -53,6 +53,9 @@ function animateCoinsTo(target, el) {
   const start = displayedCoins;
   const diff = target - start;
   if (diff === 0) return;
+  // MAP FEATURE: kurzer Puls-Glow beim Ändern des Kontostands (CSS-Animation
+  // in style.css, .coin-pulse) — macht Coin-Gewinne/-Verluste sichtbarer.
+  el.classList.remove("coin-pulse"); void el.offsetWidth; el.classList.add("coin-pulse");
   const duration = Math.min(800, Math.max(250, Math.abs(diff) * 4));
   const startTime = performance.now();
   function step(now) {
@@ -61,7 +64,7 @@ function animateCoinsTo(target, el) {
     displayedCoins = Math.round(start + diff * eased);
     el.textContent = "💰 " + displayedCoins;
     if (progress < 1) animFrame = requestAnimationFrame(step);
-    else displayedCoins = target;
+    else { displayedCoins = target; el.classList.remove("coin-pulse"); }
   }
   animFrame = requestAnimationFrame(step);
 }

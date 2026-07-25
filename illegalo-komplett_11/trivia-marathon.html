@@ -29,7 +29,7 @@ window.toggleGcTheme = function() {
     <button id="restart-btn" class="hidden">Nochmal von vorne</button>
     <div class="hint">Jede richtige Antwort erhöht den Schwierigkeitsgrad — 3 Leben, dann is Schluss!</div>
   </div>
-  <div class="panel"><h2>🏆 Top 5 (Streak)</h2><ul class="leaderboard" id="leaderboard"><li class="empty">Lade...</li></ul></div>
+  <div class="panel"><h2>🏆 Top 5 (Streak)</h2><ul class="leaderboard" id="leaderboard"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul></div>
   <div class="shop-ad" id="shop-ad"></div>
 </div>
 <div class="map-sig">MAP</div>
@@ -42,6 +42,7 @@ window.toggleGcTheme = function() {
 .trivia-answer-btn:disabled{cursor:default;}
 </style>
 <script type="module" src="maintenance.js"></script>
+<script type="module" src="scrollReveal.js"></script>
 <script type="module" src="coinBadge.js"></script>
 <script type="module" src="trivia-marathon.js"></script>
 </body>

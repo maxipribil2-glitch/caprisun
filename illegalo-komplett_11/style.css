@@ -511,6 +511,25 @@ body.gc-light .page-title { text-shadow: 0 0 4px var(--bl); }
 }
 .gc-theme-btn:hover { border-color: var(--bl); color: var(--bl); }
 
+/* MAP FEATURE: Scroll-Reveal — Kacheln/Panels schweben "krass" rein sobald sie
+   beim Scrollen in den sichtbaren Bereich kommen, statt einfach nur da zu sein.
+   Läuft über IntersectionObserver in scrollReveal.js, gestaffelt (jede Kachel
+   etwas später als die vorherige) für den "Kachel für Kachel"-Effekt. */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(48px) scale(.9) rotateX(8deg);
+  transform-origin: top center;
+  transition: opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1);
+  will-change: opacity, transform;
+}
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1) rotateX(0deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal, .scroll-reveal.revealed { opacity: 1; transform: none; transition: none; }
+}
+
 /* MAP FEATURE: Kill-Switch-404-Look — sieht aus wie ne echte GitHub-Pages-404-
    Seite (weißer Hintergrund, System-Font statt Pixel-Font, GitHub-Farben)
    statt dem normalen dunklen Retro-Theme. Überschreibt NUR den Maintenance-
@@ -535,4 +554,96 @@ body.gc-light .page-title { text-shadow: 0 0 4px var(--bl); }
 }
 #maintenance-screen.killswitch-404-look .maint-sub code {
   background: #eff1f3; padding: 2px 5px; border-radius: 4px; font-size: 0.85em;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAP FEATURE: Globale "krasse" Effekte — auf ALLEN Seiten aktiv,
+   nicht nur Gamecenter. Seiten-Fade-In, Button-Feedback, Panel-Glow,
+   Input-Fokus-Ring. Alles respektiert prefers-reduced-motion.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Seiten-Fade-In beim Laden — jede Seite baut sich sanft auf statt hart
+   aufzuploppen. Läuft einmalig, blockt nix (reine CSS-Animation). */
+@keyframes mapPageFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+body { animation: mapPageFadeIn .5s cubic-bezier(.16,1,.3,1) both; }
+
+/* Button-Press-Feedback — knackiges "Eindrücken" beim Klicken (zusätzlich zum
+   schon bestehenden 3D-Schatten-Effekt), plus sanftes Anheben beim Hover. */
+button:not(:disabled):hover, .btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+button:not(:disabled):active, .btn:active {
+  transform: translateY(2px) scale(.97);
+  filter: brightness(.95);
+}
+button, .btn { transition: transform .12s ease, filter .12s ease, box-shadow .12s ease; }
+
+/* Panel-Hover-Glow — Panels heben sich beim Drüberfahren minimal an, mit
+   verstärktem Schatten, fühlt sich "lebendiger" an. */
+.panel { transition: transform .25s cubic-bezier(.16,1,.3,1), box-shadow .25s ease; }
+.panel:hover { transform: translateY(-3px); box-shadow: 0 8px 0 0 rgba(0,0,0,0.25), 0 12px 24px rgba(0,0,0,0.15); }
+
+/* Arcade-/Chart-Karten kriegen den gleichen Hover-Lift wie Panels */
+.arcade-card, .chart-card, .ctrl-card {
+  transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease;
+}
+.arcade-card:hover, .chart-card:hover, .ctrl-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 24px rgba(255,46,154,0.18);
+}
+
+/* Input-Fokus-Ring — sanftes Aufleuchten statt hartem Browser-Standard-Outline */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(177,74,255,0.35);
+  transition: box-shadow .15s ease;
+}
+
+/* Coin-Badge-Puls — kurzes Aufblitzen wenn sich der Kontostand ändert
+   (coinBadge.js/animateCoinsTo fügt diese Klasse kurz hinzu). */
+@keyframes mapCoinPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); filter: brightness(1.3); }
+  100% { transform: scale(1); }
+}
+.coin-pulse { animation: mapCoinPulse .4s ease; }
+
+/* MAP FEATURE (Verbesserungsvorschlag Punkt 2): Shimmer-Loading-Effekt —
+   schimmernder Platzhalter-Balken statt nur "Lädt..."-Text. Klasse einfach auf
+   ein Element setzen (z.B. <li class="empty shimmer">) während Daten laden. */
+@keyframes mapShimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 100%);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  animation: mapShimmer 1.2s ease-in-out infinite;
+  border-radius: 4px;
+  color: transparent !important;
+}
+@media (prefers-reduced-motion: reduce) { .shimmer { animation: none; } }
+
+@media (hover: none) {
+  /* MAP FEATURE (Verbesserungsvorschlag Punkt 4+5): auf Touch-Geräten gibt's
+     kein echtes Hover, nur "Sticky Hover" nach dem Antippen — kostet unnötig
+     Rechenleistung (Repaints) ohne echten Nutzen, besonders auf älteren/
+     schwächeren Handys. Hier komplett deaktiviert, Reveal/Press-Effekte bleiben. */
+  button:hover, .btn:hover, .panel:hover, .arcade-card:hover, .chart-card:hover, .ctrl-card:hover {
+    transform: none !important; filter: none !important; box-shadow: inherit !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body { animation: none; }
+  button:hover, .btn:hover, button:active, .btn:active,
+  .panel:hover, .arcade-card:hover, .chart-card:hover, .ctrl-card:hover {
+    transform: none; filter: none;
+  }
+  .coin-pulse { animation: none; }
 }

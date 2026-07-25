@@ -29,7 +29,7 @@ window.toggleGcTheme = function() {
 
   <div class="panel">
     <h2>🏆 Gesamt-ELO</h2>
-    <ul class="leaderboard" id="elo-overall"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="elo-overall"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 
   <div class="panel">
@@ -40,12 +40,13 @@ window.toggleGcTheme = function() {
 
   <div class="panel">
     <h2>📜 Letzte Matches</h2>
-    <ul class="leaderboard" id="elo-recent"><li class="empty">Lade...</li></ul>
+    <ul class="leaderboard" id="elo-recent"><li class="shimmer" style="height:20px;margin:4px 0;">Lade...</li></ul>
   </div>
 </div>
 
 <div class="map-sig">MAP</div>
 <div class="version-tag">v1.2<script type="module" src="maintenance.js"></script>
+<script type="module" src="scrollReveal.js"></script>
 <script type="module" src="elo.js"></script>
 </body>
 </html>

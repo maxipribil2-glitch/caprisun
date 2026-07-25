@@ -8,6 +8,7 @@ import { renderShopAd } from "./ads.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { sfx } from "./sfx.js";
+import { fireConfetti } from "./confetti.js";
 import { awardGameReward } from "./gamocoin.js";
 
 const auth = getAuth(app), db = getFirestore(app);
@@ -23,7 +24,7 @@ const rematchBtn = document.getElementById("rematch-btn");
 const leaveBtn = document.getElementById("leave-btn");
 if (!roomId) window.location.href = "lobby.html";
 
-let myUid, roomRef, currentRoom;
+let myUid, roomRef, currentRoom, hasCelebrated = false;
 renderShopAd("shop-ad");
 
 const COLORS = ["red", "blue", "green", "yellow"];
@@ -89,6 +90,7 @@ function render() {
   if (room.status === "finished") {
     rematchBtn.classList.remove("hidden");
     statusEl.textContent = room.winner === myUid ? "DU HAST GEWONNEN 🔥" : "Verloren, GG.";
+    if (room.winner === myUid && !hasCelebrated) { hasCelebrated = true; fireConfetti(); }
     return;
   }
   rematchBtn.classList.add("hidden");
